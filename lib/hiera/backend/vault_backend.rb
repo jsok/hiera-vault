@@ -10,10 +10,11 @@ class Hiera
         @config = Config[:vault]
         begin
           @vault = Vault::Client.new(address: @config[:addr], token: @config[:token])
+          fail if @vault.sys.seal_status.sealed?
           Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
         rescue Exception => e
           @vault = nil
-          Hiera.warn("[hiera-vault] Skipping backend. Could not configure: #{e}")
+          Hiera.warn("[hiera-vault] Skipping backend. Configuration error: #{e}")
         end
       end
 
