@@ -8,11 +8,18 @@ class Hiera
         require 'vault'
 
         @config = Config[:vault]
-        @vault = Vault::Client.new(address: @config[:addr], token: @config[:token])
-        Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
+        begin
+          @vault = Vault::Client.new(address: @config[:addr], token: @config[:token])
+          Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
+        rescue Exception => e
+          @vault = nil
+          Hiera.warn("[hiera-vault] Skipping backend. Could not configure: #{e}")
+        end
       end
 
       def lookup(key, scope, order_override, resolution_type)
+        return nil if @vault.nil?
+
         begin
           secret = @vault.logical.read(key)
           Hiera.debug("[hiera-vault] Read secret: #{key}")
