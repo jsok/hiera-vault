@@ -8,6 +8,9 @@ class Hiera
         require 'vault'
 
         @config = Config[:vault]
+        @config[:mounts] ||= {}
+        @config[:mounts][:generic] ||= ['secret']
+
         begin
           @vault = Vault::Client.new(address: @config[:addr], token: @config[:token])
           fail if @vault.sys.seal_status.sealed?
@@ -21,25 +24,39 @@ class Hiera
       def lookup(key, scope, order_override, resolution_type)
         return nil if @vault.nil?
 
-        begin
-          secret = @vault.logical.read(key)
-          Hiera.debug("[hiera-vault] Read secret: #{key}")
+        Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
 
-        rescue Vault::HTTPConnectionError
-          Hiera.warn("[hiera-vault] Could not connect to read secret: #{key}")
-        rescue Vault::HTTPError => e
-          Hiera.warn("[hiera-vault] Could not read secret #{key}: #{e.errors.join("\n").rstrip}")
+        answer = nil
+
+        # Only generic mounts supported so far
+        @config[:mounts][:generic].each do |mount|
+          path = Backend.parse_string(mount, scope, { 'key' => key })
+          answer = lookup_generic("#{path}/#{key}", scope)
+
+          break if answer.kind_of? Hash
         end
 
-        return nil if secret.nil?
-
-        # Turn secret's hash keys into strings
-        data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
-        answer = Backend.parse_answer(data, scope)
-
-        return nil unless answer.kind_of? Hash
-        return answer
+        answer
       end
+
+      def lookup_generic(key, scope)
+          begin
+            secret = @vault.logical.read(key)
+          rescue Vault::HTTPConnectionError
+            Hiera.debug("[hiera-vault] Could not connect to read secret: #{key}")
+          rescue Vault::HTTPError => e
+            Hiera.warn("[hiera-vault] Could not read secret #{key}: #{e.errors.join("\n").rstrip}")
+          end
+
+          return nil if secret.nil?
+
+          Hiera.debug("[hiera-vault] Read secret: #{key}")
+          # Turn secret's hash keys into strings
+          data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
+
+          return Backend.parse_answer(data, scope)
+      end
+
     end
   end
 end
