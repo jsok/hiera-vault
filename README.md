@@ -20,20 +20,47 @@ Alternatively (and recommended) you can specify your vault client configuration
 via the same environment variables read by
 [vault-ruby](https://github.com/hashicorp/vault-ruby), e.g.
 
-    VAULT_TOKEN=secret hiera -c hiera.yml secret/foo
+    VAULT_TOKEN=secret hiera -c hiera.yml foo
 
 
 ## Lookups
 
-Since vault stores data in Key/Value pairs, this naturally lends itself to returning a Hash on lookup.
+Since vault stores data in Key/Value pairs, this naturally lends itself to
+returning a Hash on lookup.
 For example:
 
     vault write secret/foo value=bar other=baz
 
-Will return in a hiera lookup:
+The hiera lookup for `foo` will return a Hash:
 
     {"value"=>"bar","other"=>"baz"}
 
+## Backends and Mounts
+
+The `mounts` config attribute should be used to customise which secret backends
+are interrogated in a hiera lookup.
+
+Currently only the `generic` secret backend is supported.
+By default the `secret/` mount is used if no mounts are specified.
+
+Inspect your `vault mounts` output, e.g.:
+
+    > vault mounts
+    Path        Type     Description
+    staging/    generic  generic secret storage for Staging data
+    production/ generic  generic secret storage for Production data
+    secret/     generic  generic secret storage
+    sys/        system   system endpoints used for control, policy and debugging
+
+For the above scenario, you may wish to separate your per-environment secrets
+into their own mount. This could be achieved with a configuration like:
+
+    :vault:
+        # ...
+        :mounts:
+            :generic:
+                - %{environment}
+                - secret
 
 ## TODO
 
