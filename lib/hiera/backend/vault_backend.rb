@@ -13,6 +13,7 @@ class Hiera
 
         begin
           @vault = Vault::Client.new(address: @config[:addr], token: @config[:token])
+          @vault.ssl_verify = false if @config[:ssl_no_verify] == true
           fail if @vault.sys.seal_status.sealed?
           Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
         rescue Exception => e

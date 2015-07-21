@@ -62,6 +62,15 @@ into their own mount. This could be achieved with a configuration like:
                 - %{environment}
                 - secret
 
+## SSL
+
+    To use a vault server with SSL, but without verifying the remote certificate, use:
+
+    :vault:
+        # ...
+        :ssl_no_verify: true
+
+
 ## TODO
 
 This is very much alpha, some improvements:
