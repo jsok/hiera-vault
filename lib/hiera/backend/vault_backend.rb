@@ -12,8 +12,17 @@ class Hiera
         @config[:mounts][:generic] ||= ['secret']
 
         begin
-          @vault = Vault::Client.new(address: @config[:addr], token: @config[:token])
-          @vault.ssl_verify = false if @config[:ssl_no_verify] == true
+          @vault = Vault::Client.new
+          @vault.configure do |config|
+            config.address = @config[:addr]
+            config.token = @config[:token]
+
+            config.ssl_pem_file = @config[:ssl_pem_file]
+            config.ssl_ca_cert = @config[:ssl_ca_cert]
+            config.ssl_ca_path = @config[:ssl_ca_path]
+            config.ssl_verify = @config[:ssl_verify]
+          end
+
           fail if @vault.sys.seal_status.sealed?
           Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
         rescue Exception => e

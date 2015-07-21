@@ -18,7 +18,7 @@ You should modify `hiera.yaml` as follows:
 
 Alternatively (and recommended) you can specify your vault client configuration
 via the same environment variables read by
-[vault-ruby](https://github.com/hashicorp/vault-ruby), e.g.
+[vault-ruby](https://github.com/hashicorp/vault-ruby#usage), e.g.
 
     VAULT_TOKEN=secret hiera -c hiera.yml foo
 
@@ -64,17 +64,18 @@ into their own mount. This could be achieved with a configuration like:
 
 ## SSL
 
-    To use a vault server with SSL, but without verifying the remote certificate, use:
+SSL can be configured with the following config variables:
 
     :vault:
-        # ...
-        :ssl_no_verify: true
+        :ssl_pem_file: /path/to/pem
+        :ssl_ca_cert: /path/to/ca.crt
+        :ssl_ca_path: /path/to/ca/
+        :ssl_verify: false
 
 
 ## TODO
 
 This is very much alpha, some improvements:
 
- - [ ] Add configuration options for SSL/TLS
  - [ ] Setup CI
  - [ ] Upload to Puppet Forge
