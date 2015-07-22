@@ -3,7 +3,7 @@ require 'rubygems/package_task'
 
 spec = Gem::Specification.new do |gem|
     gem.name = "hiera-vault"
-    gem.version = "0.1.0"
+    gem.version = "0.1.1"
     gem.license = "Apache-2.0"
     gem.summary = "Module for using vault as a hiera backend"
     gem.email = "jonathan.sokolowski@gmail.com"
