@@ -16,11 +16,10 @@ class Hiera
           @vault.configure do |config|
             config.address = @config[:addr]
             config.token = @config[:token]
-
             config.ssl_pem_file = @config[:ssl_pem_file]
-            config.ssl_ca_cert = @config[:ssl_ca_cert]
-            config.ssl_ca_path = @config[:ssl_ca_path]
             config.ssl_verify = @config[:ssl_verify]
+            config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
+            config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
           end
 
           fail if @vault.sys.seal_status.sealed?
