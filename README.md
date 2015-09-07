@@ -71,7 +71,7 @@ SSL can be configured with the following config variables:
         :ssl_ca_cert: /path/to/ca.crt
         :ssl_ca_path: /path/to/ca/
         :ssl_verify: false
-
+        :ssl_ciphers: "MY:SSL:CIPHER:CONFIG"
 
 ## TODO
 

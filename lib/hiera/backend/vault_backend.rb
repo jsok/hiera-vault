@@ -20,6 +20,7 @@ class Hiera
             config.ssl_verify = @config[:ssl_verify]
             config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
             config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
+            config.ssl_ciphers = @config[:ssl_ciphers] if config.respond_to? :ssl_ciphers
           end
 
           fail if @vault.sys.seal_status.sealed?
