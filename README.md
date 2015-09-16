@@ -62,6 +62,18 @@ into their own mount. This could be achieved with a configuration like:
                 - %{environment}
                 - secret
 
+## Default field
+
+Vault has the ability to store many fields inside an object. By default, we return all of them as a hash.
+
+If you just use a single field to store data, eg. 'value' - you can request that just this is returned as a string, instead of a hash.
+
+To do this, set:
+
+    :vault:
+        :default_field: value
+
+
 ## SSL
 
 SSL can be configured with the following config variables:
