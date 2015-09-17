@@ -25,6 +25,8 @@ via the same environment variables read by
 
 ## Lookups
 
+### Hash - default
+
 Since vault stores data in Key/Value pairs, this naturally lends itself to
 returning a Hash on lookup.
 For example:
@@ -34,6 +36,22 @@ For example:
 The hiera lookup for `foo` will return a Hash:
 
     {"value"=>"bar","other"=>"baz"}
+
+### Single Value - optional
+
+If you use just a single field to store data, eg. "value" - you can request that just this is returned as a string, instead of a hash.
+
+To do this, set:
+
+    :vault:
+        :default_field: value
+
+For example:
+
+    vault write secret/foo value=bar other=baz
+
+The hiera lookup for `foo` will return just "bar" as a string.
+
 
 ## Backends and Mounts
 
@@ -61,17 +79,6 @@ into their own mount. This could be achieved with a configuration like:
             :generic:
                 - %{environment}
                 - secret
-
-## Default field
-
-Vault has the ability to store many fields inside an object. By default, we return all of them as a hash.
-
-If you just use a single field to store data, eg. 'value' - you can request that just this is returned as a string, instead of a hash.
-
-To do this, set:
-
-    :vault:
-        :default_field: value
 
 
 ## SSL
