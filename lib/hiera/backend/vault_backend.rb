@@ -61,8 +61,13 @@ class Hiera
           return nil if secret.nil?
 
           Hiera.debug("[hiera-vault] Read secret: #{key}")
-          # Turn secret's hash keys into strings
-          data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
+          if @config[:default_field]
+            # Return just our default_field
+            data = secret.data[@config[:default_field].to_sym]
+          else
+            # Turn secret's hash keys into strings
+            data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
+          end
 
           return Backend.parse_answer(data, scope)
       end
