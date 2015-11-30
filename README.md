@@ -48,10 +48,17 @@ To do this, set:
 
 For example:
 
-    vault write secret/foo value=bar other=baz
+    vault write secret/foo value=bar
 
-The hiera lookup for `foo` will return just "bar" as a string.
+The hiera lookup for `foo` will return just "bar" as a string, but only if it is the only field.
+If `foo` contains more fields, a Hash will be returned, just like with the default behaviour.
 
+In case the single field contains a parseable json string, the string will be parsed and the corresponding object (Hash or Array) will be used.
+
+
+### Lookup type behavior
+
+In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured merge_behavior setting.
 
 ## Backends and Mounts
 
@@ -80,6 +87,8 @@ into their own mount. This could be achieved with a configuration like:
                 - %{environment}
                 - secret
 
+
+The :hierarchy: entries from the hiera configuration are used for each mount.
 
 ## SSL
 

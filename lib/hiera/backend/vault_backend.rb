@@ -37,16 +37,36 @@ class Hiera
         Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
 
         answer = nil
+        found = false
 
         # Only generic mounts supported so far
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
-          answer = lookup_generic("#{path}/#{key}", scope)
+          Backend.datasources(scope, order_override) do |source|
+            Hiera.debug("Looking in path #{path}/#{source}")
+            new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
+            #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
+            next if new_answer.nil?
+            case resolution_type
+            when :array
+              raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
+              answer ||= []
+              answer << new_answer
+            when :hash
+              raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
+              answer ||= {}
+              answer = Backend.merge_answer(new_answer,answer)
+            else
+              answer = new_answer
+              found = true
+              break
+            end
+          end
 
-          break if answer.kind_of? Hash
+          break if found
         end
 
-        answer
+        return answer
       end
 
       def lookup_generic(key, scope)
@@ -61,13 +81,19 @@ class Hiera
           return nil if secret.nil?
 
           Hiera.debug("[hiera-vault] Read secret: #{key}")
-          if @config[:default_field]
+          if @config[:default_field] and secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1
             # Return just our default_field
             data = secret.data[@config[:default_field].to_sym]
+            begin
+              data = JSON.parse(data)
+            rescue JSON::ParserError => e
+              Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
+            end
           else
             # Turn secret's hash keys into strings
             data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
           end
+          #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
           return Backend.parse_answer(data, scope)
       end
