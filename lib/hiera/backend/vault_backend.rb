@@ -10,6 +10,7 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
+        @config[:parse_json] ||= false
 
         begin
           @vault = Vault::Client.new
@@ -84,10 +85,12 @@ class Hiera
           if @config[:default_field] and secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1
             # Return just our default_field
             data = secret.data[@config[:default_field].to_sym]
-            begin
-              data = JSON.parse(data)
-            rescue JSON::ParserError => e
-              Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
+            if @config[:parse_json]
+              begin
+                data = JSON.parse(data)
+              rescue JSON::ParserError => e
+                Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
+              end
             end
           else
             # Turn secret's hash keys into strings
