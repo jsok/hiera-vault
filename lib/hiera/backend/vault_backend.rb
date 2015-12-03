@@ -10,6 +10,7 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
+        @config[:no_ignore_additional] ||= false
         @config[:parse_json] ||= false
 
         begin
@@ -82,7 +83,7 @@ class Hiera
           return nil if secret.nil?
 
           Hiera.debug("[hiera-vault] Read secret: #{key}")
-          if @config[:default_field] and secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1
+          if @config[:default_field] and secret.data.has_key?(@config[:default_field].to_sym) and (secret.data.length == 1 or not @config[:no_ignore_additional])
             # Return just our default_field
             data = secret.data[@config[:default_field].to_sym]
             if @config[:parse_json]

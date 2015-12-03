@@ -48,30 +48,58 @@ To do this, set:
 
 For example:
 
-    vault write secret/foo value=bar
+    vault write secret/foo value=bar other=baz
 
-The hiera lookup for `foo` will return just "bar" as a string, but only if it is the only field.
-If `foo` contains more fields, a Hash will be returned, just like with the default behaviour.
+The hiera lookup for `foo` will return just "bar" as a string.
 
-### json parsing of single values - optional
+In case `foo` does not have the `value` field, a Hash is returned as normal.
+In versions <= 0.1.4 an error occurred.
+
+#### Disable Ignore additional fields - optional
+When using `:default_field`, by default, additional fields are ignored.
+To only return the value of the default field if it is the only one, set:
+
+    :vault:
+        :default_field: value
+        :no_ignore_additional: true
+
+Then, when `foo` contains more fields in addition to `value`, a Hash will be returned, just like with the default behaviour.
+
+#### JSON parsing of single values - optional
 Only applicable when :default_field is used.
-To use json parsing, set, for example:
+To use JSON parsing, set, for example:
+
     :vault:
         :default_field: json_value
         :parse_json: true
 
-Then, for example:
+Then, for example, when:
 
     vault write secret/foo json_value='["bird","spider","fly"]'
 
-The hiera lookup for `foo` will return an array. When used in Array lookups (hiera_array), all occurences of `foo` will be merged into a single array.
+the hiera lookup for `foo` will return an array.
+When used in Array lookups (hiera_array), all occurences of `foo` will be merged into a single array.
 
-In case the single field does not contain a parseable json string, the string will be returned as is. When used in Hash lookups, this will result in an error as normal.
+When, for example:
+
+    vault write secret/foo json_value='{"user1":"pass1","user2":"pass2"}'
+
+the hiera lookup for `foo` will return a hash. This is the same behavior as when:
+
+    vault write secret/foo user1='pass1' user2='pass2'
+
+Both will result in a hash:
+
+    {"user1"=>"pass1","user2"=>"pass2"}
+
+
+In case the single field does not contain a parseable JSON string, the string will be returned as is.
+When used in Hash lookups, this will result in an error as normal.
 
 
 ### Lookup type behavior
 
-In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured merge_behavior setting.
+In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured `:merge_behavior` setting.
 
 
 ## Backends and Mounts
@@ -102,7 +130,7 @@ into their own mount. This could be achieved with a configuration like:
                 - secret
 
 
-The :hierarchy: entries from the hiera configuration are used for each mount.
+The `:hierarchy` source paths from the hiera configuration are used on top of each mount.
 
 ## SSL
 
