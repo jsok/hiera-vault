@@ -10,8 +10,20 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
-        @config[:no_ignore_additional] ||= false
-        @config[:parse_json] ||= false
+        @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
+
+        if not ['string','json'].include?(@config[:default_field_parse])
+          raise Exception, "[hiera-vault] invalid value for :default_field_parse: '#{@config[:default_field_behavior]}', should be one of 'string','json'"
+        end
+
+        # :default_field_behavior:
+        #   'ignore' => ignore additional fields, if the field is not present return nil
+        #   'only'   => only return value of default_field when it is present and the only field, otherwise return hash as normal
+        @config[:default_field_behavior] ||= 'ignore'
+
+        if not ['ignore','only'].include?(@config[:default_field_behavior])
+          raise Exception, "[hiera-vault] invalid value for :default_field_behavior: '#{@config[:default_field_behavior]}', should be one of 'ignore','only'"
+        end
 
         begin
           @vault = Vault::Client.new
@@ -83,10 +95,11 @@ class Hiera
           return nil if secret.nil?
 
           Hiera.debug("[hiera-vault] Read secret: #{key}")
-          if @config[:default_field] and secret.data.has_key?(@config[:default_field].to_sym) and (secret.data.length == 1 or not @config[:no_ignore_additional])
+          if @config[:default_field] and (@config[:default_field_behavior] == 'ignore' or (secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1))
+            return nil if not secret.data.has_key?(@config[:default_field].to_sym)
             # Return just our default_field
             data = secret.data[@config[:default_field].to_sym]
-            if @config[:parse_json]
+            if @config[:default_field_parse] == 'json'
               begin
                 data = JSON.parse(data)
               rescue JSON::ParserError => e

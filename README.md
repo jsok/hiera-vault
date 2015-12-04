@@ -55,15 +55,19 @@ The hiera lookup for `foo` will return just "bar" as a string.
 In case `foo` does not have the `value` field, a Hash is returned as normal.
 In versions <= 0.1.4 an error occurred.
 
-#### Disable Ignore additional fields - optional
-When using `:default_field`, by default, additional fields are ignored.
-To only return the value of the default field if it is the only one, set:
+#### Default field behavior - optional
+When using `:default_field`, by default, additional fields are ignored, and
+if the field is not present, nil will be returned.
+
+To only return the value of the default field if it is present and the only one, set:
 
     :vault:
         :default_field: value
-        :no_ignore_additional: true
+        :default_field_behavior: only
 
 Then, when `foo` contains more fields in addition to `value`, a Hash will be returned, just like with the default behaviour.
+And, in case `foo` does not contain the `value` field, a Hash with the actual fields will be returned, as if `:default_field`
+was not specified.
 
 #### JSON parsing of single values - optional
 Only applicable when :default_field is used.
@@ -71,7 +75,7 @@ To use JSON parsing, set, for example:
 
     :vault:
         :default_field: json_value
-        :parse_json: true
+        :default_field_parse: json
 
 Then, for example, when:
 
@@ -99,7 +103,7 @@ When used in Hash lookups, this will result in an error as normal.
 
 ### Lookup type behavior
 
-In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured `:merge_behavior` setting.
+In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured global `:merge_behavior` setting.
 
 
 ## Backends and Mounts
