@@ -6,12 +6,38 @@ class Hiera
       def initialize()
         require 'json'
         require 'vault'
+        Hiera.debug("Hiera VAULT backend starting")
 
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
-        @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
+        # :override_behavior:
+        # Valid values: 'normal', 'flag'
+        # Default: 'normal'
+        # If set to 'flag' a read from vault will only be done if the override parameter
+        # is a hash, and it contains the 'flag', it will behave like this:
+        # - when the value of the 'flag' key is 'vault', it will look in vault
+        # - when the value is 'vault_only', it will return the default or raise an exception
+        #   if the lookup key is not found in vault
+        # If the 'flag' key does not exist, or if the override parameter is not a hash,
+        # nil will be returned to signal that the next backend should be searched.
+        # If the hash contains the 'override' key, its value will be used as the actual
+        # override.
+        # To support the 'flag' behavior, the `hiera_vault`, `hiera_vault_array`, and
+        # `hiera_vault_hash` functions need to be used, since they will make sure the
+        # override parameter is checked and changed where needed
+        # Additionally, when 'vault_only' is used, it will only work properly using the
+        # special hiera_vault* functions
+        #
+        # The 'flag_default' setting can be used to set the default for the 'flag' element
+        # to 'vault_only'. This is handled by the hiera_vault* parser functions.
+        #
+        @config[:override_behavior] ||= 'normal'
+        if not ['normal','flag'].include?(@config[:override_behavior])
+          raise Exception, "[hiera-vault] invalid value for :override_behavior: '#{@config[:override_behavior]}', should be one of 'normal','flag'"
+        end
 
+        @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
         if not ['string','json'].include?(@config[:default_field_parse])
           raise Exception, "[hiera-vault] invalid value for :default_field_parse: '#{@config[:default_field_behavior]}', should be one of 'string','json'"
         end
@@ -20,7 +46,6 @@ class Hiera
         #   'ignore' => ignore additional fields, if the field is not present return nil
         #   'only'   => only return value of default_field when it is present and the only field, otherwise return hash as normal
         @config[:default_field_behavior] ||= 'ignore'
-
         if not ['ignore','only'].include?(@config[:default_field_behavior])
           raise Exception, "[hiera-vault] invalid value for :default_field_behavior: '#{@config[:default_field_behavior]}', should be one of 'ignore','only'"
         end
@@ -46,38 +71,69 @@ class Hiera
       end
 
       def lookup(key, scope, order_override, resolution_type)
-        return nil if @vault.nil?
+        read_vault = false
 
-        Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
+        if @config[:override_behavior] == 'flag'
+          if order_override.kind_of? Hash
+            if order_override.has_key?('flag')
+              if ['vault','vault_only'].include?(order_override['flag'])
+                read_vault = true
+                if order_override.has_key?('override')
+                  order_override = order_override['override']
+                else
+                  order_override = nil
+                end
+              else
+                raise Exception, "[hiera-vault] Invalid value '#{order_override['flag']}' for 'flag' element in override parameter, expected one of ['vault', 'vault_only'], while override_behavior is 'flag'"
+              end
+              if @vault.nil?
+                raise Exception, "[hiera-vault] Cannot skip, because vault must be read, while override_behavior is 'flag'"
+              end
+            else
+              Hiera.debug("[hiera-vault] Not reading from vault, because 'flag' element does not exist in override parameter, while override_behavior is 'flag'")
+            end
+          else
+            Hiera.debug("[hiera-vault] Not reading from vault, because override parameter is not a hash, while override_behavior is 'flag'")
+          end
+        else
+          # normal behavior
+          return nil if @vault.nil?
+          read_vault = true
+        end
 
         answer = nil
-        found = false
 
-        # Only generic mounts supported so far
-        @config[:mounts][:generic].each do |mount|
-          path = Backend.parse_string(mount, scope, { 'key' => key })
-          Backend.datasources(scope, order_override) do |source|
-            Hiera.debug("Looking in path #{path}/#{source}")
-            new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
-            #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
-            next if new_answer.nil?
-            case resolution_type
-            when :array
-              raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
-              answer ||= []
-              answer << new_answer
-            when :hash
-              raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
-              answer ||= {}
-              answer = Backend.merge_answer(new_answer,answer)
-            else
-              answer = new_answer
-              found = true
-              break
+        if read_vault
+          Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
+
+          found = false
+
+          # Only generic mounts supported so far
+          @config[:mounts][:generic].each do |mount|
+            path = Backend.parse_string(mount, scope, { 'key' => key })
+            Backend.datasources(scope, order_override) do |source|
+              Hiera.debug("Looking in path #{path}/#{source}")
+              new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
+              #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
+              next if new_answer.nil?
+              case resolution_type
+              when :array
+                raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
+                answer ||= []
+                answer << new_answer
+              when :hash
+                raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
+                answer ||= {}
+                answer = Backend.merge_answer(new_answer,answer)
+              else
+                answer = new_answer
+                found = true
+                break
+              end
             end
-          end
 
-          break if found
+            break if found
+          end
         end
 
         return answer
@@ -102,8 +158,8 @@ class Hiera
             if @config[:default_field_parse] == 'json'
               begin
                 data = JSON.parse(data)
-              rescue JSON::ParserError => e
-                Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
+              rescue JSON::ParserError
+                Hiera.debug("[hiera-vault] Could not parse string as JSON")
               end
             end
           else
