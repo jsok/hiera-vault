@@ -2,7 +2,7 @@ require 'hiera_puppet'
 require 'hiera/backend/vault_backend'
 
 module Puppet::Parser::Functions
-  newfunction(:hiera_vault, :type => :rvalue, :arity => -2, :doc => "Performs a
+  newfunction(:hiera_vault_array, :type => :rvalue, :arity => -2, :doc => "Performs a
   hiera_array lookup, first and optionally only in the 'vault' backend.
 
   The behavior depends on the 'override' parameter.
@@ -34,22 +34,23 @@ module Puppet::Parser::Functions
     when 'String'
       override = {'flag' => flag_default, 'override' => override}
     when 'Hash'
-      if not override.has_key?('override')
-        raise(Puppet::ParseError, "hiera_vault: missing 'override' key in override hash: '#{override}':#{override.class}")
-      end
       if not override.has_key?('flag')
         override['flag'] = flag_default
       end
     else
-      raise(Puppet::ParseError, "hiera_vault: invalid 'override' parameter supplied: '#{override}':#{override.class}")
+      raise(Puppet::ParseError, "hiera_vault: invalid 'override' parameter supplied: #{override}:#{override.class}")
     end
     # this part is needed, since the 'default' parameter is not available in backends
     @vault_backend ||= Hiera::Backend::Vault_backend.new
     scope = Hiera::Scope.new(self)
     new_answer = @vault_backend.lookup(key, scope, override, :array)
-    raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
-    answer ||= []
-    answer << new_answer
+    if new_answer.nil?
+      answer = new_answer
+    else
+      raise Exception, "hiera_vault_array: after vault_backend.lookup: type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
+      answer ||= []
+      answer << new_answer
+    end
     if override['flag'] == 'vault_only'
       if not (default.nil? or default.empty?)
         answer = Hiera::Backend.resolve_answer(answer, :array) unless answer.nil?
@@ -57,7 +58,7 @@ module Puppet::Parser::Functions
         answer = default if answer.nil?
       end
       if answer.nil?
-        raise(Puppet::ParseError, "hiera_vault: Could not find data item #{key} in vault, while vault_only was requested, and empty default supplied")
+        raise(Puppet::ParseError, "hiera_vault_array: Could not find data item #{key} in vault, while vault_only was requested, and empty default supplied")
       end
       return answer
     end
@@ -68,13 +69,13 @@ module Puppet::Parser::Functions
       override = nil
     end
     begin
-      new_answer = HieraPuppet.lookup(key, nil, scope, override, :array)
+      new_answer = HieraPuppet.lookup(key, nil, self, override, :array)
     rescue Puppet::ParseError
       answer = Hiera::Backend.parse_string(default, scope) if default.is_a?(String)
       answer = default if answer.nil?
       return answer
     end
-    raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.nil? or new_answer.kind_of? Array or new_answer.kind_of? String
+    raise Exception, "hiera_vault_array after normal Hiera lookup: type mismatch: expected Array and got #{new_answer.class}" unless new_answer.nil? or new_answer.kind_of? Array or new_answer.kind_of? String
     answer ||= []
     answer << new_answer
     answer = Hiera::Backend.resolve_answer(answer, :array)
