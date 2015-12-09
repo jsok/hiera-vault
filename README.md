@@ -134,13 +134,39 @@ into their own mount. This could be achieved with a configuration like:
                 - secret
 
 
-### Use global `:hierarchy` - optional
+## Use global `:hierarchy` - optional
 By default, only the list of mounts is traversed as described above. When having configured:
 
     :vault:
         :use_hierarchy: 'yes'
 
 the `:hierarchy` source paths from the hiera configuration are used on top of each mount.
+
+
+## Flagged usage - optional
+By default all hiera lookups are done through all backends.
+In case of vault, it might be desirable to skip vault in normal
+hiera lookups, while you already know up front that the key is not present
+in vault.
+Lookups in vault are relatively expensive, since for each key a connection to vault
+is made as many times as there are mounts and even a multiple of that when using the
+`:hierarchy` list.
+Additionally it might also be desirable to lookup keys in vault only.
+
+To accomplish this, the vault backend can be configured with the following:
+
+    :vault:
+        :override_behavior: 'flag'
+        :flag_default: 'vault_only'
+
+To make this work, this gem comes with three specific functions named `hiera_vault`,
+`hiera_vault_array`, and `hiera_vault_hash`, which should be used instead of the
+corresponding normal hiera lookup functions, to get data out of vault.
+Without the `:flag_default` option, lookups will be done in vault first, and then in
+the other backends. If `:flag_default` is set to 'vault_only', the `hiera_vault*` functions
+will only use the vault backend.
+With `:override_behavior` set to 'flag', the vault backend will skip looking in vault when
+lookups are done with the normal hiera lookup functions.
 
 
 ## SSL
