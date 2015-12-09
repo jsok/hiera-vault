@@ -134,7 +134,14 @@ into their own mount. This could be achieved with a configuration like:
                 - secret
 
 
-The `:hierarchy` source paths from the hiera configuration are used on top of each mount.
+### Use global `:hierarchy` - optional
+By default, only the list of mounts is traversed as described above. When having configured:
+
+    :vault:
+        :use_hierarchy: 'yes'
+
+the `:hierarchy` source paths from the hiera configuration are used on top of each mount.
+
 
 ## SSL
 
