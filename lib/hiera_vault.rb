@@ -34,6 +34,18 @@ module HieraVault
     else
       raise(Puppet::ParseError, "hiera_vault: invalid 'override' parameter supplied: '#{override}':#{override.class}")
     end
+
+    if resolution_type == :priority
+      if default.kind_of? Hash
+        if default.has_key?('generate')
+          if @vault_config[:default_field]
+            override['generate'] = default['generate'].to_i
+            default = nil
+          end
+        end
+      end
+    end
+
     # this part is needed, since the 'default' parameter is not available in backends
     @vault_backend ||= Hiera::Backend::Vault_backend.new
     hiera_scope = Hiera::Scope.new(scope)
@@ -78,6 +90,9 @@ module HieraVault
       begin
         new_answer = HieraPuppet.lookup(key, nil, scope, override, resolution_type)
       rescue Puppet::ParseError
+        if default.nil? or default.empty?
+          raise(Puppet::ParseError, "Could not find data item #{key} in vault and in any Hiera data file and no or empty default supplied")
+        end
         answer = Hiera::Backend.parse_string(default, hiera_scope) if default.is_a?(String)
         answer = default if answer.nil?
         return answer
@@ -98,5 +113,6 @@ module HieraVault
     answer = Hiera::Backend.resolve_answer(answer, resolution_type)
     return answer
   end
+
 end
 

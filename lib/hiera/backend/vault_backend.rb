@@ -52,34 +52,26 @@ class Hiera
           raise Exception, "[hiera-vault] invalid value for :default_field_behavior: '#{@config[:default_field_behavior]}', should be one of 'ignore','only'"
         end
 
-        begin
-          @vault = Vault::Client.new
-          @vault.configure do |config|
-            config.address = @config[:addr] if @config[:addr]
-            config.token = @config[:token] if @config[:token]
-            config.ssl_pem_file = @config[:ssl_pem_file] if @config[:ssl_pem_file]
-            config.ssl_verify = @config[:ssl_verify] if @config[:ssl_verify]
-            config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
-            config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
-            config.ssl_ciphers = @config[:ssl_ciphers] if config.respond_to? :ssl_ciphers
-          end
-
-          fail if @vault.sys.seal_status.sealed?
-          Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
-        rescue Exception => e
-          @vault = nil
-          Hiera.warn("[hiera-vault] Skipping backend. Configuration error: #{e}")
-        end
+        vault_connect
       end
 
       def lookup(key, scope, order_override, resolution_type)
+        vault_connect
+
         read_vault = false
+        genpw = false
 
         if @config[:override_behavior] == 'flag'
           if order_override.kind_of? Hash
             if order_override.has_key?('flag')
               if ['vault','vault_only'].include?(order_override['flag'])
                 read_vault = true
+                if order_override.has_key?('generate')
+                  pwlen = order_override['generate'].to_i
+                  if pwlen > 8 # TODO: make configurable
+                    genpw = true
+                  end
+                end
                 if order_override.has_key?('override')
                   order_override = order_override['override']
                 else
@@ -89,7 +81,7 @@ class Hiera
                 raise Exception, "[hiera-vault] Invalid value '#{order_override['flag']}' for 'flag' element in override parameter, expected one of ['vault', 'vault_only'], while override_behavior is 'flag'"
               end
               if @vault.nil?
-                raise Exception, "[hiera-vault] Cannot skip, because vault must be read, while override_behavior is 'flag'"
+                raise Exception, "[hiera-vault] Cannot skip, because vault is unavailable and vault must be read, while override_behavior is 'flag'"
               end
             else
               Hiera.debug("[hiera-vault] Not reading from vault, because 'flag' element does not exist in override parameter, while override_behavior is 'flag'")
@@ -138,7 +130,56 @@ class Hiera
           end
         end
 
+        if answer.nil? and @config[:default_field] and genpw
+          new_answer = generate(pwlen)
+
+          @config[:mounts][:generic].each do |mount|
+            path = Backend.parse_string(mount, scope, { 'key' => key })
+            datasources(scope, order_override) do |source|
+              # Storing the generated secret in the override path or the highest path in the hierarchy
+              # make sure to use a proper override or an appropriate hierarchy if the secret is to be used
+              # on different nodes, otherwise the same key might be written with a different value at different
+              # paths
+              Hiera.debug("Storing generated secret in vault at path #{path}#{source}#{key}")
+              answer = new_answer if store("#{path}#{source}#{key}", { @config[:default_field].to_sym => new_answer })
+              break
+            end
+            break
+          end
+
+        end
         return answer
+      end
+
+      def vault_connect
+        if @vault.nil?
+          begin
+            @vault = Vault::Client.new
+            @vault.configure do |config|
+              config.address = @config[:addr] if @config[:addr]
+              config.token = @config[:token] if @config[:token]
+              config.ssl_pem_file = @config[:ssl_pem_file] if @config[:ssl_pem_file]
+              config.ssl_verify = @config[:ssl_verify] if @config[:ssl_verify]
+              config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
+              config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
+              config.ssl_ciphers = @config[:ssl_ciphers] if config.respond_to? :ssl_ciphers
+            end
+
+            fail if @vault.sys.seal_status.sealed?
+            Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
+          rescue Exception => e
+            @vault = nil
+            Hiera.warn("[hiera-vault] Skipping backend. Configuration error: #{e}")
+          end
+        end
+        if @vault
+          begin
+            fail if @vault.sys.seal_status.sealed?
+          rescue Exception => e
+            @vault = nil
+            Hiera.warn("[hiera-vault] Vault is unavailable or configuration error: #{e}")
+          end
+        end
       end
 
       def datasources(scope, order_override)
@@ -181,6 +222,33 @@ class Hiera
           #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
           return Backend.parse_answer(data, scope)
+      end
+
+      def generate(password_size)
+        pass = ""
+        (1..password_size).each do
+          pass += (("a".."z").to_a+("A".."Z").to_a+("0".."9").to_a)[rand(62).to_int]
+        end
+
+        pass
+      end
+
+      def store(key, secret_hash)
+          begin
+            write_result = @vault.logical.write(key, secret_hash)
+          rescue Vault::HTTPConnectionError
+            Hiera.debug("[hiera-vault] Could not connect to write secret: #{key}")
+          rescue Vault::HTTPError => e
+            Hiera.warn("[hiera-vault] Could not write secret #{key}: #{e.errors.join("\n").rstrip}")
+          end
+
+          if write_result == true
+            Hiera.debug("[hiera-vault] Successfully written secret: #{key}")
+            return true
+          else
+            Hiera.warn("[hiera-vault] Could not write secret #{key}: #{write_result}")
+            return false
+          end
       end
 
     end
