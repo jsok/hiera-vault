@@ -90,25 +90,29 @@ module HieraVault
       begin
         new_answer = HieraPuppet.lookup(key, nil, scope, override, resolution_type)
       rescue Puppet::ParseError
-        if default.nil? or default.empty?
-          raise(Puppet::ParseError, "Could not find data item #{key} in vault and in any Hiera data file and no or empty default supplied")
+        if answer.nil?
+          if default.nil? or default.empty?
+            raise(Puppet::ParseError, "Could not find data item #{key} in vault and in any Hiera data file and no or empty default supplied")
+          end
+          answer = Hiera::Backend.parse_string(default, hiera_scope) if default.is_a?(String)
+          answer = default if answer.nil?
+          return answer
         end
-        answer = Hiera::Backend.parse_string(default, hiera_scope) if default.is_a?(String)
-        answer = default if answer.nil?
-        return answer
       end
     end
-    case resolution_type
-    when :array
-      raise Exception, "hiera_vault: after normal Hiera lookup: type mismatch: expected Array and got #{new_answer.class}" unless new_answer.nil? or new_answer.kind_of? Array or new_answer.kind_of? String
-      answer ||= []
-      answer << new_answer
-    when :hash
-      raise Exception, "hiera_vault: after normal Hiera lookup: type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
-      answer ||= {}
-      answer = Hiera::Backend.merge_answer(new_answer,answer)
-    else
-      answer = new_answer
+    if not new_answer.nil?
+      case resolution_type
+      when :array
+        raise Exception, "hiera_vault: after normal Hiera lookup: type mismatch: expected Array and got #{new_answer.class}" unless new_answer.nil? or new_answer.kind_of? Array or new_answer.kind_of? String
+        answer ||= []
+        answer << new_answer
+      when :hash
+        raise Exception, "hiera_vault: after normal Hiera lookup: type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
+        answer ||= {}
+        answer = Hiera::Backend.merge_answer(new_answer,answer)
+      else
+        answer = new_answer
+      end
     end
     answer = Hiera::Backend.resolve_answer(answer, resolution_type)
     return answer
