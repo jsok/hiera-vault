@@ -70,7 +70,7 @@ And, in case `foo` does not contain the `value` field, a Hash with the actual fi
 was not specified.
 
 #### JSON parsing of single values - optional
-Only applicable when :default_field is used.
+Only applicable when `:default_field` is used.
 To use JSON parsing, set, for example:
 
     :vault:
@@ -132,15 +132,6 @@ into their own mount. This could be achieved with a configuration like:
             :generic:
                 - %{environment}
                 - secret
-
-
-### Use global `:hierarchy` - optional
-By default, only the list of mounts is traversed as described above. When having configured:
-
-    :vault:
-        :use_hierarchy: 'yes'
-
-the `:hierarchy` source paths from the hiera configuration are used on top of each mount.
 
 
 ## SSL
