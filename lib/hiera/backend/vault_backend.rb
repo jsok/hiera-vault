@@ -11,7 +11,8 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
-        @config[:use_hierarchy] ||= 'no'
+        @config[:use_hierarchy] ||= false
+        @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
 
         # :override_behavior:
         # Valid values: 'normal', 'flag'
@@ -183,7 +184,7 @@ class Hiera
       end
 
       def datasources(scope, order_override)
-        if @config[:use_hierarchy] == 'yes'
+        if @config[:use_hierarchy]
           Backend.datasources(scope, order_override) do |source|
             yield("/#{source}/")
           end

@@ -70,7 +70,7 @@ And, in case `foo` does not contain the `value` field, a Hash with the actual fi
 was not specified.
 
 #### JSON parsing of single values - optional
-Only applicable when :default_field is used.
+Only applicable when `:default_field` is used.
 To use JSON parsing, set, for example:
 
     :vault:
@@ -134,13 +134,76 @@ into their own mount. This could be achieved with a configuration like:
                 - secret
 
 
-## Use global `:hierarchy` - optional
-By default, only the list of mounts is traversed as described above. When having configured:
+### Use global `:hierarchy` - optional
+By default, only the list of mounts is traversed as described above.
+However, when having configured:
 
     :vault:
-        :use_hierarchy: 'yes'
+        :use_hierarchy: true
 
 the `:hierarchy` source paths from the hiera configuration are used on top of each mount.
+This makes the behavior of the vault backend the same as other backends.
+Additionally, this enables usage of the third parameter to the hiera functions in puppet,
+the so-called 'override' parameter.
+
+Example: In case we have the following hiera config:
+
+    :backends:
+        - vault
+        - yaml
+
+    :hierarchy:
+      - nodes/%{fqdn}
+      - hostclass/%{hostclass}
+      - location/%{location}
+      - zone/%{zone}
+      - companyenv/%{companyenv}
+      - ostype/%{operatingsystem}
+      - ostype/%{operatingsystem}-%{lsbdistcodename}
+      - defaults
+
+    :yaml:
+      :datadir: /var/lib/hiera/%{environment}/
+
+    :vault:
+        :addr: ...
+        :mounts:
+            :generic:
+                - %{environment}
+                - secret
+
+Each lookup will now for each mount loop through each path from the `:hierarchy`
+list, on top of the mount. So, the paths it will look for entries are:
+
+    %{environment}/nodes/%{fqdn}
+    %{environment}/hostclass/%{hostclass}
+    ...
+    %{environment}/defaults
+    secret/nodes/%{fqdn}
+    secret/hostclass/%{hostclass}
+    ...
+    secret/defaults
+
+Additionally, the third argument to the hiera functions, the override parameter is supported.
+
+For example, the call:
+
+    $val_of_thekey = hiera('thekey', 'thedefault', 'override_path/look_here_first')
+
+will result in lookups through the following paths in vault:
+
+    %{environment}/override_path/look_here_first
+    %{environment}/nodes/%{fqdn}
+    %{environment}/hostclass/%{hostclass}
+    ...
+    %{environment}/defaults
+    secret/override_path/look_here_first
+    secret/nodes/%{fqdn}
+    secret/hostclass/%{hostclass}
+    ...
+    secret/defaults
+
+If not found in the `vault` backend, the next backend will be searched, which is `yaml` in this case.
 
 
 ## Flagged usage - optional
