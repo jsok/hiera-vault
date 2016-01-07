@@ -167,6 +167,7 @@ Example: In case we have the following hiera config:
 
     :vault:
         :addr: ...
+        :use_hierarchy: true
         :mounts:
             :generic:
                 - %{environment}
