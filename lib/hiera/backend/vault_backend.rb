@@ -71,11 +71,8 @@ class Hiera
             answer = Backend.merge_answer(new_answer,answer)
           else
             answer = new_answer
-            found = true
             break
           end
-
-          break if found
         end
 
         return answer
