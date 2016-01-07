@@ -77,7 +77,6 @@ class Hiera
               break
             end
           end
-
           break if found
         end
 
