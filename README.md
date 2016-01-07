@@ -70,7 +70,7 @@ And, in case `foo` does not contain the `value` field, a Hash with the actual fi
 was not specified.
 
 #### JSON parsing of single values - optional
-Only applicable when :default_field is used.
+Only applicable when `:default_field` is used.
 To use JSON parsing, set, for example:
 
     :vault:
