@@ -145,6 +145,7 @@ the `:hierarchy` source paths from the hiera configuration are used on top of ea
 This makes the behavior of the vault backend the same as other backends.
 Additionally, this enables usage of the third parameter to the hiera functions in puppet,
 the so-called 'override' parameter.
+See http://docs.puppetlabs.com/hiera/1/puppet.html#hiera-lookup-functions
 
 Example: In case we have the following hiera config:
 
@@ -153,39 +154,34 @@ Example: In case we have the following hiera config:
         - yaml
 
     :hierarchy:
-      - nodes/%{fqdn}
-      - hostclass/%{hostclass}
-      - location/%{location}
-      - zone/%{zone}
-      - companyenv/%{companyenv}
-      - ostype/%{operatingsystem}
-      - ostype/%{operatingsystem}-%{lsbdistcodename}
-      - defaults
+      - "nodes/%{::fqdn}"
+      - "hostclass/%{::hostclass}"
+      - ...
+      - common
 
     :yaml:
-      :datadir: /var/lib/hiera/%{environment}/
+      :datadir: "/var/lib/hiera/%{::environment}/"
 
     :vault:
         :addr: ...
         :use_hierarchy: true
         :mounts:
             :generic:
-                - %{environment}
+                - "%{::environment}"
                 - secret
 
-Each lookup will now for each mount loop through each path from the `:hierarchy`
-list, on top of the mount. So, the paths it will look for entries are:
+Each hiera lookup will result in a lookup under each mount, honouring the configured `:hierarchy`. e.g.:
 
-    %{environment}/nodes/%{fqdn}
-    %{environment}/hostclass/%{hostclass}
-    ...
-    %{environment}/defaults
-    secret/nodes/%{fqdn}
-    secret/hostclass/%{hostclass}
-    ...
-    secret/defaults
+    %{::environment}/nodes/%{::fqdn}
+    %{::environment}/hostclass/${::hostclass}
+    %{::environment}/...
+    %{environment}/common
+    secret/nodes/%{::fqdn}
+    secret/hostclass/%{::hostclass}
+    secret/...
+    secret/common
 
-Additionally, the third argument to the hiera functions, the override parameter is supported.
+Additionally, the third argument to the hiera functions, the `override` parameter, is supported.
 
 For example, the call:
 
@@ -193,18 +189,16 @@ For example, the call:
 
 will result in lookups through the following paths in vault:
 
-    %{environment}/override_path/look_here_first
-    %{environment}/nodes/%{fqdn}
-    %{environment}/hostclass/%{hostclass}
-    ...
-    %{environment}/defaults
+    %{::environment}/override_path/look_here_first
+    %{::environment}/nodes/%{::fqdn}
+    %{::environment}/hostclass/%{::hostclass}
+    %{::environment}/...
+    %{::environment}/common
     secret/override_path/look_here_first
-    secret/nodes/%{fqdn}
-    secret/hostclass/%{hostclass}
-    ...
-    secret/defaults
-
-If not found in the `vault` backend, the next backend will be searched, which is `yaml` in this case.
+    secret/nodes/%{::fqdn}
+    secret/hostclass/%{::hostclass}
+    secret/...
+    secret/common
 
 
 ## Flagged usage - optional
