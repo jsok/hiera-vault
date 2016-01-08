@@ -12,5 +12,5 @@ spec = Gem::Specification.new do |gem|
     gem.description = "Hiera backend for looking up secrets stored in Vault"
     gem.require_path = "lib"
     gem.files = FileList["lib/**/*"].to_a
-    gem.add_dependency('vault', '~> 0.1', '>= 0.1.5')
+    gem.add_dependency('vault', '~> 0.2')
 end
