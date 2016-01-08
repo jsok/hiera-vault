@@ -52,6 +52,59 @@ For example:
 
 The hiera lookup for `foo` will return just "bar" as a string.
 
+In case `foo` does not have the `value` field, a Hash is returned as normal.
+In versions <= 0.1.4 an error occurred.
+
+#### Default field behavior - optional
+When using `:default_field`, by default, additional fields are ignored, and
+if the field is not present, nil will be returned.
+
+To only return the value of the default field if it is present and the only one, set:
+
+    :vault:
+        :default_field: value
+        :default_field_behavior: only
+
+Then, when `foo` contains more fields in addition to `value`, a Hash will be returned, just like with the default behaviour.
+And, in case `foo` does not contain the `value` field, a Hash with the actual fields will be returned, as if `:default_field`
+was not specified.
+
+#### JSON parsing of single values - optional
+Only applicable when `:default_field` is used.
+To use JSON parsing, set, for example:
+
+    :vault:
+        :default_field: json_value
+        :default_field_parse: json
+
+Then, for example, when:
+
+    vault write secret/foo json_value='["bird","spider","fly"]'
+
+the hiera lookup for `foo` will return an array.
+When used in Array lookups (hiera_array), all occurences of `foo` will be merged into a single array.
+
+When, for example:
+
+    vault write secret/foo json_value='{"user1":"pass1","user2":"pass2"}'
+
+the hiera lookup for `foo` will return a hash. This is the same behavior as when:
+
+    vault write secret/foo user1='pass1' user2='pass2'
+
+Both will result in a hash:
+
+    {"user1"=>"pass1","user2"=>"pass2"}
+
+
+In case the single field does not contain a parseable JSON string, the string will be returned as is.
+When used in Hash lookups, this will result in an error as normal.
+
+
+### Lookup type behavior
+
+In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured global `:merge_behavior` setting.
+
 
 ## Backends and Mounts
 

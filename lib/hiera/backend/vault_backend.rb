@@ -10,6 +10,20 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
+        @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
+
+        if not ['string','json'].include?(@config[:default_field_parse])
+          raise Exception, "[hiera-vault] invalid value for :default_field_parse: '#{@config[:default_field_behavior]}', should be one of 'string','json'"
+        end
+
+        # :default_field_behavior:
+        #   'ignore' => ignore additional fields, if the field is not present return nil
+        #   'only'   => only return value of default_field when it is present and the only field, otherwise return hash as normal
+        @config[:default_field_behavior] ||= 'ignore'
+
+        if not ['ignore','only'].include?(@config[:default_field_behavior])
+          raise Exception, "[hiera-vault] invalid value for :default_field_behavior: '#{@config[:default_field_behavior]}', should be one of 'ignore','only'"
+        end
 
         begin
           @vault = Vault::Client.new
@@ -37,16 +51,31 @@ class Hiera
         Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
 
         answer = nil
+        found = false
 
         # Only generic mounts supported so far
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
-          answer = lookup_generic("#{path}/#{key}", scope)
-
-          break if answer.kind_of? Hash
+          Hiera.debug("Looking in path #{path}")
+          new_answer = lookup_generic("#{path}/#{key}", scope)
+          #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
+          next if new_answer.nil?
+          case resolution_type
+          when :array
+            raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
+            answer ||= []
+            answer << new_answer
+          when :hash
+            raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
+            answer ||= {}
+            answer = Backend.merge_answer(new_answer,answer)
+          else
+            answer = new_answer
+            break
+          end
         end
 
-        answer
+        return answer
       end
 
       def lookup_generic(key, scope)
@@ -61,13 +90,22 @@ class Hiera
           return nil if secret.nil?
 
           Hiera.debug("[hiera-vault] Read secret: #{key}")
-          if @config[:default_field]
+          if @config[:default_field] and (@config[:default_field_behavior] == 'ignore' or (secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1))
+            return nil if not secret.data.has_key?(@config[:default_field].to_sym)
             # Return just our default_field
             data = secret.data[@config[:default_field].to_sym]
+            if @config[:default_field_parse] == 'json'
+              begin
+                data = JSON.parse(data)
+              rescue JSON::ParserError => e
+                Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
+              end
+            end
           else
             # Turn secret's hash keys into strings
             data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
           end
+          #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
           return Backend.parse_answer(data, scope)
       end
