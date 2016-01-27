@@ -40,6 +40,11 @@ class Hiera
           raise Exception, "[hiera-vault] invalid value for :override_behavior: '#{@config[:override_behavior]}', should be one of 'normal','flag'"
         end
 
+        @config[:flag_default] ||= 'vault_first'
+        if not ['vault_first','vault_only'].include?(@config[:flag_default])
+          raise Exception, "hiera_vault: invalid value '#{@config[:flag_default]}' for :flag_default in hiera config, one of 'vault_first', 'vault_only' expected"
+        end
+
         @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
         if not ['string','json'].include?(@config[:default_field_parse])
           raise Exception, "[hiera-vault] invalid value for :default_field_parse: '#{@config[:default_field_behavior]}', should be one of 'string','json'"
@@ -57,99 +62,116 @@ class Hiera
       end
 
       def lookup(key, scope, order_override, resolution_type)
-        vault_connect
+        begin
+          vault_connect
 
-        read_vault = false
-        genpw = false
+          read_vault = false
+          genpw = false
+          otp = nil
 
-        if @config[:override_behavior] == 'flag'
-          if order_override.kind_of? Hash
-            if order_override.has_key?('flag')
-              if ['vault','vault_only'].include?(order_override['flag'])
-                read_vault = true
-                if order_override.has_key?('generate')
-                  pwlen = order_override['generate'].to_i
-                  if pwlen > 8 # TODO: make configurable
-                    genpw = true
+          if @config[:override_behavior] == 'flag'
+            if order_override.kind_of? Hash
+              if order_override.has_key?('flag')
+                if ['vault_default','vault_first','vault_only'].include?(order_override['flag'])
+                  read_vault = true
+                  if order_override['flag'] == 'vault_default'
+                    order_override['flag'] = @config[:flag_default]
                   end
-                end
-                if order_override.has_key?('override')
-                  order_override = order_override['override']
+                  if order_override.has_key?('generate')
+                    pwlen = order_override['generate'].to_i
+                    if pwlen > 8 # TODO: make configurable
+                      genpw = true
+                    end
+                  end
+                  if order_override.has_key?('vault_otp')
+                    otp = order_override['vault_otp']
+                  end
+                  if order_override.has_key?('resolution_type')
+                    resolution_type = order_override['resolution_type']
+                  end
+                  # this one must be last, because order_override gets a new value!:
+                  if order_override.has_key?('override')
+                    order_override = order_override['override']
+                  else
+                    order_override = nil
+                  end
                 else
-                  order_override = nil
+                  raise Exception, "[hiera-vault] Invalid value '#{order_override['flag']}' for 'flag' element in override parameter, expected one of ['vault_default', 'vault_first', 'vault_only'], while override_behavior is 'flag'"
+                end
+                if @vault.nil?
+                  raise Exception, "[hiera-vault] Cannot skip, because vault is unavailable and vault must be read, while override_behavior is 'flag'"
                 end
               else
-                raise Exception, "[hiera-vault] Invalid value '#{order_override['flag']}' for 'flag' element in override parameter, expected one of ['vault', 'vault_only'], while override_behavior is 'flag'"
-              end
-              if @vault.nil?
-                raise Exception, "[hiera-vault] Cannot skip, because vault is unavailable and vault must be read, while override_behavior is 'flag'"
+                Hiera.debug("[hiera-vault] Not reading from vault, because 'flag' element does not exist in override parameter, while override_behavior is 'flag'")
               end
             else
-              Hiera.debug("[hiera-vault] Not reading from vault, because 'flag' element does not exist in override parameter, while override_behavior is 'flag'")
+              Hiera.debug("[hiera-vault] Not reading from vault, because override parameter is not a hash, while override_behavior is 'flag'")
             end
           else
-            Hiera.debug("[hiera-vault] Not reading from vault, because override parameter is not a hash, while override_behavior is 'flag'")
+            # normal behavior
+            return nil if @vault.nil?
+            read_vault = true
           end
-        else
-          # normal behavior
-          return nil if @vault.nil?
-          read_vault = true
-        end
 
-        answer = nil
+          answer = nil
 
-        if read_vault
-          Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
+          if read_vault
+            Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
 
-          found = false
+            found = false
 
-          # Only generic mounts supported so far
-          @config[:mounts][:generic].each do |mount|
-            path = Backend.parse_string(mount, scope, { 'key' => key })
-            datasources(scope, order_override) do |source|
-              Hiera.debug("Looking in path #{path}#{source}")
-              new_answer = lookup_generic("#{path}#{source}#{key}", scope)
-              #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
-              next if new_answer.nil?
-              case resolution_type
-              when :array
-                raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
-                answer ||= []
-                answer << new_answer
-              when :hash
-                raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
-                answer ||= {}
-                answer = Backend.merge_answer(new_answer,answer)
-              else
-                answer = new_answer
-                found = true
+            # Only generic mounts supported so far
+            @config[:mounts][:generic].each do |mount|
+              path = Backend.parse_string(mount, scope, { 'key' => key })
+              datasources(scope, order_override) do |source|
+                Hiera.debug("Looking in path #{path}#{source}")
+                new_answer = lookup_generic("#{path}#{source}#{key}", scope)
+                #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
+                next if new_answer.nil?
+                case resolution_type
+                when :array
+                  raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
+                  answer ||= []
+                  answer << new_answer
+                when :hash
+                  raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
+                  answer ||= {}
+                  answer = Backend.merge_answer(new_answer,answer)
+                else
+                  answer = new_answer
+                  found = true
+                  break
+                end
+              end
+
+              break if found
+            end
+          end
+
+          if answer.nil? and @config[:default_field] and genpw
+            new_answer = generate(pwlen)
+
+            @config[:mounts][:generic].each do |mount|
+              path = Backend.parse_string(mount, scope, { 'key' => key })
+              datasources(scope, order_override) do |source|
+                # Storing the generated secret in the override path or the highest path in the hierarchy
+                # make sure to use a proper override or an appropriate hierarchy if the secret is to be used
+                # on different nodes, otherwise the same key might be written with a different value at different
+                # paths
+                Hiera.debug("Storing generated secret in vault at path #{path}#{source}#{key}")
+                answer = new_answer if store("#{path}#{source}#{key}", { @config[:default_field].to_sym => new_answer })
                 break
               end
-            end
-
-            break if found
-          end
-        end
-
-        if answer.nil? and @config[:default_field] and genpw
-          new_answer = generate(pwlen)
-
-          @config[:mounts][:generic].each do |mount|
-            path = Backend.parse_string(mount, scope, { 'key' => key })
-            datasources(scope, order_override) do |source|
-              # Storing the generated secret in the override path or the highest path in the hierarchy
-              # make sure to use a proper override or an appropriate hierarchy if the secret is to be used
-              # on different nodes, otherwise the same key might be written with a different value at different
-              # paths
-              Hiera.debug("Storing generated secret in vault at path #{path}#{source}#{key}")
-              answer = new_answer if store("#{path}#{source}#{key}", { @config[:default_field].to_sym => new_answer })
               break
             end
-            break
           end
-
+          if answer.nil? and not otp.nil?
+            answer = otp
+          end
+          return answer
+        rescue Exception => e
+          raise Exception, "#{e.message} in #{e.backtrace[0]}"
         end
-        return answer
       end
 
       def vault_connect

@@ -220,7 +220,7 @@ To accomplish this, the vault backend can be configured with the following:
 To make this work, this gem comes with three specific functions named `hiera_vault`,
 `hiera_vault_array`, and `hiera_vault_hash`, which should be used instead of the
 corresponding normal hiera lookup functions, to get data out of vault.
-Without the `:flag_default` option, lookups will be done in vault first, and then in
+Without the `:flag_default` option, or when set to 'vault_first', lookups will be done in vault first, and then in
 the other backends. If `:flag_default` is set to 'vault_only', the `hiera_vault*` functions
 will only use the vault backend.
 With `:override_behavior` set to 'flag', the vault backend will skip looking in vault when
