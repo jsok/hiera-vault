@@ -10,7 +10,6 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
-        @config[:use_hierarchy] ||= false
         @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
 
         if not ['string','json'].include?(@config[:default_field_parse])
@@ -57,9 +56,9 @@ class Hiera
         # Only generic mounts supported so far
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
-          datasources(scope, order_override) do |source|
-            Hiera.debug("Looking in path #{path}#{source}")
-            new_answer = lookup_generic("#{path}#{source}#{key}", scope)
+          Backend.datasources(scope, order_override) do |source|
+            Hiera.debug("Looking in path #{path}/#{source}/")
+            new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
             #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
             next if new_answer.nil?
             case resolution_type
@@ -81,16 +80,6 @@ class Hiera
         end
 
         return answer
-      end
-
-      def datasources(scope, order_override)
-        if @config[:use_hierarchy]
-          Backend.datasources(scope, order_override) do |source|
-            yield("/#{source}/")
-          end
-        else
-          yield("/")
-        end
       end
 
       def lookup_generic(key, scope)

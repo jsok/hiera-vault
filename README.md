@@ -134,14 +134,8 @@ into their own mount. This could be achieved with a configuration like:
                 - secret
 
 
-### Use global `:hierarchy` - optional
-By default, only the list of mounts is traversed as described above.
-However, when having configured:
-
-    :vault:
-        :use_hierarchy: true
-
-the `:hierarchy` source paths from the hiera configuration are used on top of each mount.
+Since version 0.2.0, the `:hierarchy` source paths from the hiera configuration are used
+on top of each mount.
 This makes the behavior of the vault backend the same as other backends.
 Additionally, this enables usage of the third parameter to the hiera functions in puppet,
 the so-called 'override' parameter.
@@ -164,7 +158,6 @@ Example: In case we have the following hiera config:
 
     :vault:
         :addr: ...
-        :use_hierarchy: true
         :mounts:
             :generic:
                 - "%{::environment}"
@@ -181,11 +174,9 @@ Each hiera lookup will result in a lookup under each mount, honouring the config
     secret/...
     secret/common
 
-Additionally, the third argument to the hiera functions, the `override` parameter, is supported.
+With the third argument to the hiera functions, the `override` parameter, the call
 
-For example, the call:
-
-    $val_of_thekey = hiera('thekey', 'thedefault', 'override_path/look_here_first')
+    $val = hiera('thekey', 'thedefault', 'override_path/look_here_first')
 
 will result in lookups through the following paths in vault:
 
