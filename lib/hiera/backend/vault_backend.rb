@@ -11,7 +11,6 @@ class Hiera
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
-        @config[:use_hierarchy] ||= false
         @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
 
         # :override_behavior:
@@ -123,9 +122,9 @@ class Hiera
             # Only generic mounts supported so far
             @config[:mounts][:generic].each do |mount|
               path = Backend.parse_string(mount, scope, { 'key' => key })
-              datasources(scope, order_override) do |source|
-                Hiera.debug("Looking in path #{path}#{source}")
-                new_answer = lookup_generic("#{path}#{source}#{key}", scope)
+              Backend.datasources(scope, order_override) do |source|
+                Hiera.debug("Looking in path #{path}/#{source}/")
+                new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
                 #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
                 next if new_answer.nil?
                 case resolution_type
@@ -153,13 +152,13 @@ class Hiera
 
             @config[:mounts][:generic].each do |mount|
               path = Backend.parse_string(mount, scope, { 'key' => key })
-              datasources(scope, order_override) do |source|
+              Backend.datasources(scope, order_override) do |source|
                 # Storing the generated secret in the override path or the highest path in the hierarchy
                 # make sure to use a proper override or an appropriate hierarchy if the secret is to be used
                 # on different nodes, otherwise the same key might be written with a different value at different
                 # paths
-                Hiera.debug("Storing generated secret in vault at path #{path}#{source}#{key}")
-                answer = new_answer if store("#{path}#{source}#{key}", { @config[:default_field].to_sym => new_answer })
+                Hiera.debug("Storing generated secret in vault at path #{path}/#{source}/#{key}")
+                answer = new_answer if store("#{path}/#{source}/#{key}", { @config[:default_field].to_sym => new_answer })
                 break
               end
               break
@@ -202,16 +201,6 @@ class Hiera
             @vault = nil
             Hiera.warn("[hiera-vault] Vault is unavailable or configuration error: #{e}")
           end
-        end
-      end
-
-      def datasources(scope, order_override)
-        if @config[:use_hierarchy]
-          Backend.datasources(scope, order_override) do |source|
-            yield("/#{source}/")
-          end
-        else
-          yield("/")
         end
       end
 
