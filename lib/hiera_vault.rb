@@ -41,10 +41,6 @@ module HieraVault
       override['resolution_type'] = resolution_type
 
       new_answer = HieraPuppet.lookup(key, nil, scope, override, :priority)
-      if override['flag'] == 'vault_default'
-        override['flag'] = new_answer['flag_used']
-        new_answer = new_answer['answer']
-      end
       if new_answer == otp
         # this means that vault_backend could not find anything, so it returned the value of vault_otp
         new_answer = nil

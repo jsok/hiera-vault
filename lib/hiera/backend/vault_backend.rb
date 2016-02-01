@@ -67,7 +67,6 @@ class Hiera
           read_vault = false
           genpw = false
           otp = nil
-          flag_default_used = false
 
           if @config[:override_behavior] == 'flag'
             if order_override.kind_of? Hash
@@ -75,7 +74,7 @@ class Hiera
                 if ['vault_default','vault_first','vault_only'].include?(order_override['flag'])
                   read_vault = true
                   if order_override['flag'] == 'vault_default'
-                    flag_default_used = true
+                    # since variables are passed by reference, the caller will know afterwards, which flag was actually used
                     order_override['flag'] = @config[:flag_default]
                   end
                   if order_override.has_key?('generate')
@@ -169,10 +168,6 @@ class Hiera
           if answer.nil? and not otp.nil?
             answer = otp
           end
-          if flag_default_used
-            # the caller needs to know the flag value that was used, so here it is encapsulated in the answer
-            answer = {'flag_used' => @config[:flag_default], 'answer' => answer }
-          }
           return answer
         rescue Exception => e
           raise Exception, "#{e.message} in #{e.backtrace[0]}"
