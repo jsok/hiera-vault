@@ -208,10 +208,8 @@ class Hiera
       def lookup_generic(key, scope)
           begin
             secret = @vault.logical.read(key)
-          rescue Vault::HTTPConnectionError
-            Hiera.debug("[hiera-vault] Could not connect to read secret: #{key}")
-          rescue Vault::HTTPError => e
-            Hiera.warn("[hiera-vault] Could not read secret #{key}: #{e.errors.join("\n").rstrip}")
+          rescue Exception => e
+            raise Exception, "[hiera-vault] Could not read secret #{key}, #{e.class}: #{e.errors.join("\n").rstrip}"
           end
 
           return nil if secret.nil?
