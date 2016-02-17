@@ -134,6 +134,64 @@ into their own mount. This could be achieved with a configuration like:
                 - secret
 
 
+Since version 0.2.0, the `:hierarchy` source paths from the hiera configuration are used
+on top of each mount.
+This makes the behavior of the vault backend the same as other backends.
+Additionally, this enables usage of the third parameter to the hiera functions in puppet,
+the so-called 'override' parameter.
+See http://docs.puppetlabs.com/hiera/1/puppet.html#hiera-lookup-functions
+
+Example: In case we have the following hiera config:
+
+    :backends:
+        - vault
+        - yaml
+
+    :hierarchy:
+      - "nodes/%{::fqdn}"
+      - "hostclass/%{::hostclass}"
+      - ...
+      - common
+
+    :yaml:
+      :datadir: "/var/lib/hiera/%{::environment}/"
+
+    :vault:
+        :addr: ...
+        :mounts:
+            :generic:
+                - "%{::environment}"
+                - secret
+
+Each hiera lookup will result in a lookup under each mount, honouring the configured `:hierarchy`. e.g.:
+
+    %{::environment}/nodes/%{::fqdn}
+    %{::environment}/hostclass/${::hostclass}
+    %{::environment}/...
+    %{environment}/common
+    secret/nodes/%{::fqdn}
+    secret/hostclass/%{::hostclass}
+    secret/...
+    secret/common
+
+With the third argument to the hiera functions, the `override` parameter, the call
+
+    $val = hiera('thekey', 'thedefault', 'override_path/look_here_first')
+
+will result in lookups through the following paths in vault:
+
+    %{::environment}/override_path/look_here_first
+    %{::environment}/nodes/%{::fqdn}
+    %{::environment}/hostclass/%{::hostclass}
+    %{::environment}/...
+    %{::environment}/common
+    secret/override_path/look_here_first
+    secret/nodes/%{::fqdn}
+    secret/hostclass/%{::hostclass}
+    secret/...
+    secret/common
+
+
 ## SSL
 
 SSL can be configured with the following config variables:
