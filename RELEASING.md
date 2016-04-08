@@ -13,6 +13,12 @@ Then:
 
 ## Rubygems.org
 
+### TravisCI
+
+The new tagged version should be released automatically.
+
+### Manual
+
 Now build the gem:
 
     gem build hiera-vault.gemspec
