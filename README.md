@@ -1,4 +1,5 @@
 [![Gem Version Badge](https://img.shields.io/gem/v/hiera-vault.svg)](https://rubygems.org/gems/hiera-vault)
+[![Build Status](https://travis-ci.org/jsok/hiera-vault.svg?branch=master)](https://travis-ci.org/jsok/hiera-vault)
 
 # hiera-vault
 A Hiera backend to retrieve secrets from Hashicorp's Vault
