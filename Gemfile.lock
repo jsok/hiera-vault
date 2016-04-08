@@ -11,6 +11,7 @@ GEM
       facter (> 1.6, < 3)
       hiera (~> 1.0)
       json_pure
+    rake (11.1.2)
     vault (0.4.0)
 
 PLATFORMS
@@ -18,4 +19,5 @@ PLATFORMS
 
 DEPENDENCIES
   puppet (~> 3.8)
+  rake
   vault (~> 0.4)
