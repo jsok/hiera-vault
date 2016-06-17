@@ -2,22 +2,44 @@ GEM
   remote: http://rubygems.org/
   specs:
     CFPropertyList (2.2.8)
+    diff-lcs (1.2.5)
     facter (2.4.6)
       CFPropertyList (~> 2.2.6)
     hiera (1.3.4)
       json_pure
     json_pure (1.8.3)
+    metaclass (0.0.4)
+    mocha (0.10.5)
+      metaclass (~> 0.0.1)
     puppet (3.8.6)
       facter (> 1.6, < 3)
       hiera (~> 1.0)
       json_pure
     rake (11.1.2)
+    rspec (3.4.0)
+      rspec-core (~> 3.4.0)
+      rspec-expectations (~> 3.4.0)
+      rspec-mocks (~> 3.4.0)
+    rspec-core (3.4.4)
+      rspec-support (~> 3.4.0)
+    rspec-expectations (3.4.0)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.4.0)
+    rspec-legacy_formatters (1.0.1)
+      rspec (~> 3.0)
+    rspec-mocks (3.4.1)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.4.0)
+    rspec-support (3.4.1)
     vault (0.4.0)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
+  mocha (~> 0.10.5)
   puppet (~> 3.8)
-  rake
+  rake (~> 11.1)
+  rspec (~> 3.3)
+  rspec-legacy_formatters (~> 1.0)
   vault (~> 0.4)

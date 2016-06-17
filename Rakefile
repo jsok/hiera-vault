@@ -1,3 +1,9 @@
-task :default do
-  puts "TBD: https://github.com/jsok/hiera-vault/issues/17"
+require 'rake'
+require 'rspec/core/rake_task'
+
+RSpec::Core::RakeTask.new(:spec) do |t|
+  t.pattern = Dir.glob('spec/**/*_spec.rb')
+  t.rspec_opts = '--format documentation'
 end
+
+task :default => :spec
