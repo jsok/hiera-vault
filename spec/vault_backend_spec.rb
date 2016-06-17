@@ -27,6 +27,13 @@ class Hiera
           expect { Vault_backend.new }.to raise_error /invalid value for :default_field_behavior/
         end
 
+        it "should skip backend on configuration error" do
+          Vault::Client.stubs(:new).raises(Exception)
+          Hiera.expects(:warn).with(regexp_matches /Skipping backend/).once
+
+          Config.load({:vault => {}})
+          Vault_backend.new
+        end
       end
 
     end
