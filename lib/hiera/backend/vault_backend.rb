@@ -31,7 +31,7 @@ class Hiera
             config.address = @config[:addr] if @config[:addr]
             config.token = @config[:token] if @config[:token]
             config.ssl_pem_file = @config[:ssl_pem_file] if @config[:ssl_pem_file]
-            config.ssl_verify = @config[:ssl_verify] if @config[:ssl_verify]
+            config.ssl_verify = @config[:ssl_verify] if @config.key?(:ssl_verify)
             config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
             config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
             config.ssl_ciphers = @config[:ssl_ciphers] if config.respond_to? :ssl_ciphers
