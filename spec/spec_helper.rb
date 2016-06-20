@@ -6,6 +6,8 @@ require 'mocha'
 require 'hiera'
 require 'vault'
 
+require_relative "support/vault_server"
+
 RSpec.configure do |config|
   config.mock_with :mocha
 end
