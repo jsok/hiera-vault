@@ -9,11 +9,14 @@ class Hiera
         Hiera.stubs(:debug)
         Hiera.stubs(:warn)
         Hiera::Backend.stubs(:empty_answer).returns(nil)
+        RSpec::VaultServer.token
       end
 
       describe '#initialize' do
-        it "should work with empty config" do
-          Config.load({:vault => {}})
+        it "should work with valid config" do
+          Config.load({:vault => {
+            :addr => RSpec::VaultServer.address
+          }})
           Vault_backend.new
         end
 
