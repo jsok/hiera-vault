@@ -27,9 +27,16 @@ class Hiera
 
         begin
           @vault = Vault::Client.new
+          if @config[:prioritize_env]
+            addr = ENV['VAULT_ADDR'] || @config[:addr]
+            token = ENV['VAULT_TOKEN'] || @config[:token]
+          else
+            addr = @config[:addr] || ENV['VAULT_ADDR']
+            token = @config[:token] || ENV['VAULT_TOKEN']
+          end
           @vault.configure do |config|
-            config.address = @config[:addr] if @config[:addr]
-            config.token = @config[:token] if @config[:token]
+            config.address = addr if addr
+            config.token = token if token
             config.ssl_pem_file = @config[:ssl_pem_file] if @config[:ssl_pem_file]
             config.ssl_verify = @config[:ssl_verify] if @config[:ssl_verify]
             config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
