@@ -1,4 +1,5 @@
 [![Gem Version Badge](https://img.shields.io/gem/v/hiera-vault.svg)](https://rubygems.org/gems/hiera-vault)
+[![Build Status](https://travis-ci.org/jsok/hiera-vault.svg?branch=master)](https://travis-ci.org/jsok/hiera-vault)
 
 # hiera-vault
 A Hiera backend to retrieve secrets from Hashicorp's Vault
@@ -250,10 +251,3 @@ SSL can be configured with the following config variables:
         :ssl_ca_path: /path/to/ca/
         :ssl_verify: false
         :ssl_ciphers: "MY:SSL:CIPHER:CONFIG"
-
-## TODO
-
-This is very much alpha, some improvements:
-
- - [ ] Setup CI
- - [ ] Upload to Puppet Forge

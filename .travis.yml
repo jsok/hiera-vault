@@ -1,0 +1,11 @@
+language: ruby
+rvm:
+  - 2.2.0
+cache: bundler
+
+deploy:
+  provider: rubygems
+  on:
+    tags: true
+  api_key:
+    secure: SRIaGxxXtAzJKQ7SZ4mTKGEUFg+ZGtejsjN11CAVwfdru20OeJRlU3sfkL2AxaLhuMr8AkRvRqSi7pVvDBG/u5wcMf1HyiXj9Xbr/O3Rf11NuGjEWC1WUik/Hov0wMnTtt3O2oZAHTlBOryhis5zcHvS25v1ikxjlfybH3g2EFhNFU4jiGX8es48Tt9mDvuHxtX962YaCtceAn/wW/ymZQNC8DxhrplR4wW1glhl3B7g+5qx6ntcWwEr5Gq1XPBuSuHeznHCjHzvL/TNCx0s2CFGQDK2XgRd/R9CbEE2RPXQHCFcKUSqAWGlbMllQJF6jpdd4fzO+lwcaALARFghWvumnwmxixKjT96MZo6NbfABY+cOewefefJdI6r0SnNQybeA/3MtG/8GApI9F+qCsSCKoi2bMcye4OJ5m6UvmIex76Ssn8QYDIrwBGAgLBXriGcw/tOr3jEBpcwlwUupIF9a17imTysDGhoFT/+EciqWs1KQ0r3I1+jql+Nsjag2xW+cQuKbYK2uB2a5dTS6mBwnipSw6wv5EzCHelptzFTOvtiTfUyMg1KKQ+c2WyfiqBBOB+fTRpPimiPifd1PS4VnUbTm0wcyf4qSgchDrzAb6lt07a5yXKXCekiA1aOOepbe/rxaq+dtUuBswgZvypVaO6P2lYTnSFHnb06vBjc=
