@@ -193,6 +193,54 @@ will result in lookups through the following paths in vault:
     secret/common
 
 
+## Flagged usage - optional
+By default all hiera lookups are done through all backends.
+In case of vault, it might be desirable to skip vault in normal
+hiera lookups, while you already know up front that the key is not present
+in vault.
+Lookups in vault are relatively expensive, since for each key a connection to vault
+is made as many times as there are mounts and even a multiple of that when using the
+`:hierarchy` list.
+Additionally it might also be desirable to lookup keys in vault only.
+
+To accomplish this, the vault backend can be configured with the following:
+
+    :vault:
+        :override_behavior: 'flag'
+        :flag_default: 'vault_only'
+
+To make this work, this gem comes with three specific functions named `hiera_vault`,
+`hiera_vault_array`, and `hiera_vault_hash`, which should be used instead of the
+corresponding normal hiera lookup functions, to get data out of vault.
+Without the `:flag_default` option, or when set to 'vault_first', lookups will be done in vault first, and then in
+the other backends. If `:flag_default` is set to 'vault_only', the `hiera_vault*` functions
+will only use the vault backend.
+With `:override_behavior` set to 'flag', the vault backend will skip looking in vault when
+lookups are done with the normal hiera lookup functions.
+
+When using any of the specific functions, a puppet run will fail with an error stating:
+
+    [hiera-vault] Cannot skip, because vault is unavailable and vault must be read, while override_behavior is 'flag'
+
+
+### Auto-generating and writing secrets with `hiera_vault()` - `:default_field` required
+This works only when `:default_field` has been configured and `:override_behavior: 'flag'` is in
+effect.
+
+When using the following call with `hiera_vault` in your puppet code, a password will be generated
+automatically and stored at the `override` or highest level hierarchy path, in case no `override`
+has been specified:
+
+    $some_password = hiera_vault('some_key', {'generate' => 20}, 'some_override_path')
+
+In case the `key` does not exist at any path in the mounts/hierarchy lists, a password string will
+be generated with the given length, using alphanumeric characters only. Then it will be stored in
+vault at the first path that was examined. As such it is highly recommended to use an override path
+to ensure using the same value on different nodes, in case that's desired.
+In some cases it might be desired to have a different password on each node. In such a case,
+`$::fqdn` can be used as the override parameter.
+
+
 ## SSL
 
 SSL can be configured with the following config variables:
