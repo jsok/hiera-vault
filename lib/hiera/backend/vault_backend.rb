@@ -26,7 +26,7 @@ class Hiera
         begin
           @vault = Vault::Client.new
           @vault.configure do |config|
-            config.address = @config[:address] unless @config[:address].nil?
+            config.address = @config[:addr] unless @config[:addr].nil?
             config.token = @config[:token] unless @config[:token].nil?
             config.ssl_pem_file = @config[:ssl_pem_file] unless @config[:ssl_pem_file].nil?
             config.ssl_verify = @config[:ssl_verify] unless @config[:ssl_verify].nil?
@@ -50,31 +50,29 @@ class Hiera
       def lookup(key, scope, order_override, resolution_type)
         return nil if @vault.nil?
 
+        Hiera.debug("[hiera-vault] Looking up #{key} in vault backend") 
+
         answer = nil
         found = false
-
-        Hiera.debug("Lookup #{key} in Vault backend")
-        Hiera.debug(Backend.parse_string(@config[:log_id], scope))
 
         # Only generic mounts supported so far
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
           Backend.datasources(scope, order_override) do |source|
+            Hiera.debug("[hiera-vault] Looking in path #{path}/#{source}/")
             data = lookup_generic_with_cache("#{path}/#{source}/#{key}")
-
+            #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
             next if data.nil?
             found = true
-
-            Hiera.debug("Found #{key} in #{path}/#{source}")
-
             new_answer = Backend.parse_answer(data, scope)
+
             case resolution_type
             when :array
-              raise Exception, "Hiera type mismatch for key '#{key}': expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
+              raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
               answer ||= []
               answer << new_answer
             when :hash
-              raise Exception, "Hiera type mismatch for key '#{key}': expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
+              raise Exception, "Hiera type mismatch: expected Hash and got #{new_answer.class}" unless new_answer.kind_of? Hash
               answer ||= {}
               answer = Backend.merge_answer(new_answer,answer)
             else
@@ -83,6 +81,7 @@ class Hiera
             end
           end
         end
+
         return answer
       end
 
@@ -112,17 +111,17 @@ class Hiera
         begin
           secret = @vault.logical.read(key)
         rescue Vault::HTTPConnectionError
-          Hiera.debug("[hiera-vault] Could not connect to vault server")
+          Hiera.debug("[hiera-vault] Could not connect to read secret: #{key}")
         rescue Vault::HTTPError => e
-          Hiera.warn("[hiera-vault] Could not read secret: #{e.errors.join("\n").rstrip}")
+          Hiera.warn("[hiera-vault] Could not read secret #{key}: #{e.errors.join("\n").rstrip}")
         end
 
         return nil if secret.nil?
 
-        if @config[:default_field] && (@config[:default_field_behavior] == 'ignore' ||
-            (secret.data.has_key?(@config[:default_field].to_sym) && secret.data.length == 1))
+        Hiera.debug("[hiera-vault] Read secret: #{key}")
+        if @config[:default_field] and (@config[:default_field_behavior] == 'ignore' or (secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1))
           return nil if not secret.data.has_key?(@config[:default_field].to_sym)
-
+          # Return just our default_field
           data = secret.data[@config[:default_field].to_sym]
           if @config[:default_field_parse] == 'json'
             begin
@@ -134,7 +133,7 @@ class Hiera
         else
           data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
         end
-        Hiera.warn("[hiera-vault] Data: #{data}:#{data.class}")
+        #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
         return data
       end
@@ -147,6 +146,7 @@ class Hiera
           entry[:expired_at] < now
         end 
       end
+
     end
   end
 end
