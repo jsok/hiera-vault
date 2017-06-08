@@ -1,3 +1,4 @@
+# Vault backend for Hiera
 class Hiera
   module Backend
     class Vault_backend
