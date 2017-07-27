@@ -23,6 +23,19 @@ via the same environment variables read by
 
     VAULT_TOKEN=secret hiera -c hiera.yml foo
 
+To authenticate using the AppRole backend provide the `:role_id` parameter:
+
+    :backends:
+        - vault
+
+    :vault:
+        :addr: http://127.0.0.1:8200
+        :role_id: id_here
+
+And create a file `/var/lib/vault/secret_id` on the host where hiera will be used
+with the `secret_id`. This path can be customized using the `:secret_id_path`
+configuration option.
+
 
 ## Lookups
 
