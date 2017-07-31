@@ -35,12 +35,12 @@ class Hiera
             config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
             config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
             config.ssl_ciphers = @config[:ssl_ciphers] if config.respond_to? :ssl_ciphers
-            if @config[:custom_hiearchy].nil?
-              @custom_hiearchy = nil
+            if @config[:custom_hierarchy].nil?
+              @custom_hierarchy = nil
             else
-              @custom_hiearchy = @config[:custom_hiearchy]
+              @custom_hierarchy = @config[:custom_hierarchy]
             end
-            Hiera.debug("[hiera-vault] Using custom_hiearchy #{@custom_hiearchy}")
+            Hiera.debug("[hiera-vault] Using custom_hierarchy #{@custom_hierarchy}")
           end
 
           fail if @vault.sys.seal_status.sealed?
@@ -62,7 +62,7 @@ class Hiera
         # Only generic mounts supported so far
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
-          Backend.datasources(scope, order_override, @custom_hiearchy) do |source|
+          Backend.datasources(scope, order_override, @custom_hierarchy) do |source|
             Hiera.debug("Looking in path #{path}/#{source}/")
             new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
             #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
