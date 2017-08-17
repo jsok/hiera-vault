@@ -192,6 +192,28 @@ will result in lookups through the following paths in vault:
     secret/...
     secret/common
 
+### Custom hierarchy
+
+When using a large hierarchy in hiera, the process for looking up all parameters
+can take long. To prevent this a vault specific hiearchy can be provided.
+
+```
+:backends:
+    - vault
+
+:hierarchy:
+  - "nodes/%{::fqdn}"
+  - "hostclass/%{::hostclass}"
+  - ...
+  - common
+
+:vault:
+    :addr: ...
+    :custom_hiearchy:
+      - "nodes/%{::fqdn}"
+      - common/common
+```
+
 
 ## SSL
 
