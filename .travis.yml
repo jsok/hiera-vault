@@ -3,6 +3,11 @@ rvm:
   - 2.2.0
 cache: bundler
 
+before_install: |-
+  wget -O vault.zip -q https://releases.hashicorp.com/vault/0.6.0/vault_0.6.0_linux_amd64.zip
+  unzip vault.zip -d $HOME/bin
+  export PATH="$HOME/bin:$PATH"
+
 deploy:
   provider: rubygems
   on:
