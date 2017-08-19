@@ -102,6 +102,16 @@ In case the single field does not contain a parseable JSON string, the string wi
 When used in Hash lookups, this will result in an error as normal.
 
 
+#### Vault Filter - optional
+Only applicable when `:vault_filter` is used.
+To use Vault Filter, set, for example:
+
+    :vault:
+        :vault_filter: vault
+
+This will result on only keys starting with the key `vault` being looked up against vault, all other lookups will skip the vault backend.
+
+
 ### Lookup type behavior
 
 In case Array or Hash lookup is done, usual array or hash merging takes place based on the configured global `:merge_behavior` setting.
