@@ -52,8 +52,10 @@ class Hiera
 
       def lookup(key, scope, order_override, resolution_type)
         return nil if @vault.nil?
-        filter = @config[:vault_filter]
-        return nil if not (key[/^#{filter}/])
+        if not @config[:vault_filter].nil?
+          filter = @config[:vault_filter]
+          return nil if not (key[/^#{filter}/])
+        end
 
         Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
 
