@@ -102,14 +102,19 @@ In case the single field does not contain a parseable JSON string, the string wi
 When used in Hash lookups, this will result in an error as normal.
 
 
-#### Vault Filter - optional
-Only applicable when `:vault_filter` is used.
-To use Vault Filter, set, for example:
+#### Filter Prefix - optional
+Only applicable when `:filter_prefix` is used.
+To use Filter by prefix, set, for example:
 
     :vault:
-        :vault_filter: vault
+        :filter_prefix: 'vault::'
+        :filter_mode: 0
 
-This will result on only keys starting with the key `vault` being looked up against vault, all other lookups will skip the vault backend.
+This will cause only keys prefixed with `vault::` to be looked up against vault, all other keys will skip the vault backend.
+
+`filter_mode` option `1` will remove your given `filter_prefix` from the key prior to the look up against the vault backend, this
+could be useful in some cases to avoid rewriting keys in vault to meet the requirements of your filter, if unset or set to `0` the exact 
+key name used in the hiera function will be used in the vault lookup.
 
 
 ### Lookup type behavior
