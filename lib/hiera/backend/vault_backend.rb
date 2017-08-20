@@ -35,10 +35,15 @@ class Hiera
             config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
             config.ssl_ca_path = @config[:ssl_ca_path] if config.respond_to? :ssl_ca_path
             config.ssl_ciphers = @config[:ssl_ciphers] if config.respond_to? :ssl_ciphers
-            if @config[:vault_filter].nil?
-              @vault_filter = nil
+            if @config[:filter_prefix].nil?
+              @filter_prefix = nil
             else
-              @vault_filter = @config[:vault_filter]
+              @filter_prefix = @config[:filter_prefix]
+            end
+            if @config[:filter_mode].nil?
+              @filter_mode = 0
+            else
+              @filter_mode = @config[:filter_mode]
             end
           end
 
@@ -52,9 +57,12 @@ class Hiera
 
       def lookup(key, scope, order_override, resolution_type)
         return nil if @vault.nil?
-        if not @config[:vault_filter].nil?
-          filter = @config[:vault_filter]
+        if not @config[:filter_prefix].nil?
+          filter = @config[:filter_prefix]
           return nil if not (key[/^#{filter}/])
+          if @config[:filter_mode] > 0
+            key = key.sub(/^#{filter}/, '')
+          end
         end
 
         Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
