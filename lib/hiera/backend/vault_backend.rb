@@ -9,7 +9,7 @@ class Hiera
 
         @config = Config[:vault]
         @config[:mounts] ||= {}
-        @config[:mounts][:generic] ||= ['secret']
+        @config[:mounts][:generic] ||= @config[:mounts]['generic'] || ['secret']
         @config[:default_field_parse] ||= 'string' # valid values: 'string', 'json'
 
         if not ['string','json'].include?(@config[:default_field_parse])
