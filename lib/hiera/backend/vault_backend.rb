@@ -1,12 +1,48 @@
 # Vault backend for Hiera
 class Hiera
+  # Due to the authentication information might be not avaliable
+  # on the moment when the Puppet is runed for the first time, 
+  # addig the variable that indicates if the actual authentication
+  # already happened.
+  # For example if it's the first pupper run ever, the host is not enrolled in
+  # the domain yet and there is no Kerberos on this stage but it will 
+  # be when someone will actually try to read value from the Vault. At this 
+  # moment the actuall authentication would happen.
+  # Options for:
+  # proto       - protocol (http/htts)
+  # port        - port where vault server litens
+  # fqdn_expand - short hostname given, expend it
+  # auth_type   - if "external", use external command for authentication
+  # cmd         - command to run for the authentication. Should just return
+  #               tokn in the stdout. Should accept hostname + extra optional
+  #               arguments.
+  # args        - extra arguments for the command defined in the "cmd"
+  initialized = false
+  module RunCmd
+    module_function
+
+    # @param  [String] cmd   -> command to run
+    # @return [String]       -> Stdout
+    # @throws [RuntimeError] -> includes the Stderr
+
+    def cmd command
+      require 'open3'
+      stdout_str, stderr_str, status = Open3.capture3(command)
+      fail "#{command}: #{stderr_str.chomp}"  unless status.success?
+      stdout_str
+    end
+  end
+
   module Backend
     class Vault_backend
 
       def initialize()
+        Hiera.debug("[hiera-vault] backned is loaded")
+      end
+      def initialize_vault()
         require 'json'
         require 'vault'
-
+        require 'socket'
         @config = Config[:vault]
         @config[:mounts] ||= {}
         @config[:mounts][:generic] ||= ['secret']
@@ -26,10 +62,58 @@ class Hiera
         end
 
         begin
+          
+          # Unless [:fqdn_expand] is set to 'false' we use the host name as it
+          # is. If it is set to 'true' we expand the name. This is used to 
+          # address correct Vault server from the cluster based on the DNS
+          # information. Might not be needed for all users, so if there is 
+          # no setting given nothing will happen. 
+          fqdn_expand = @config[:fqdn_expand] unless @config[:addr].nil?
+          if fqdn_expand
+            short_hostname = @config[:addr] unless @config[:addr].nil?
+            Hiera.debug("[hiera-vault] Expandin hostname #{short_hostname} to FQDN")
+            vault_hostname = Socket.gethostbyname(short_hostname).first 
+          else
+            vault_hostname = @config[:addr] unless @config[:addr].nil?
+          end
+          Hiera.debug("[hiera-vault] Vault hostname: #{vault_hostname}")
+
+          # We can have "expternal" authentication type:
+          # anything or absend -> default. Host and token are hardcoded 
+          # into the hiera.yaml
+          # "external" -> some external program returns access token string
+          # if no setting given, assume that authentication token is
+          # hardcoded in the hiera.yaml
+          auth_type = @config[:auth_type] unless @config[:auth_type].nil?
+          if auth_type == 'external'
+            Hiera.debug("[hiera-vault] Using external authentication")
+            token_cmd = @config[:cmd] unless @config[:cmd].nil?
+            token_cmd = token_cmd + " " + vault_hostname
+            if @config[:args]
+              token_cmd = token_cmd + " " + @config[:args]
+            end
+            Hiera.debug("[hiera-vault] Command: #{token_cmd}")
+            token_result = RunCmd::cmd(token_cmd)
+          else
+            Hiera.debug("[hiera-vault] Using hardcoded authentication")
+            token_result = @config[:token] unless @config[:token].nil?
+          end
+          port = @config[:port] unless @config[:port].nil?
           @vault = Vault::Client.new
           @vault.configure do |config|
-            config.address = @config[:addr] unless @config[:addr].nil?
-            config.token = @config[:token] unless @config[:token].nil?
+
+            # If we have "proto" in the config then we have new styled config
+            # in the other case just use the hostname + proto + port as is
+            # from the config. "Proto" is defining 443 in case of the https
+            # so it's more importnant then the "port".
+            proto = @config[:proto] unless @config[:proto].nil?
+            if proto
+              config.address = proto+vault_hostname+":"+port.to_s
+            else
+              config.address = vault_hostname
+            end
+            Hiera.debug("[hiera-vault] Will connect to: #{config.address}")
+            config.token = token_result
             config.ssl_pem_file = @config[:ssl_pem_file] unless @config[:ssl_pem_file].nil?
             config.ssl_verify = @config[:ssl_verify] unless @config[:ssl_verify].nil?
             config.ssl_ca_cert = @config[:ssl_ca_cert] if config.respond_to? :ssl_ca_cert
@@ -41,18 +125,23 @@ class Hiera
           Hiera.debug("[hiera-vault] Client configured to connect to #{@vault.address}")
         rescue Exception => e
           @vault = nil
-          Hiera.warn("[hiera-vault] Skipping backend. Configuration error: #{e}")
+          Hiera.warn("[hiera-vault] Vault configuration failed. Configuration error: #{e}")
         end
       end
 
       def lookup(key, scope, order_override, resolution_type)
+        # Here comes 1st actual attempt to authenticate against vault
+        # Ensuring we are doing this only once
+        if !@initialized
+          initialize_vault()
+          @initialized = true
+        end
         return nil if @vault.nil?
 
         Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
 
         answer = nil
         found = false
-
         # Only generic mounts supported so far
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
@@ -112,8 +201,10 @@ class Hiera
           #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
           return Backend.parse_answer(data, scope)
-      end
+        end
 
+      end
     end
   end
-end
+  
+  
