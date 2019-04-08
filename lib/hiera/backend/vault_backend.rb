@@ -130,7 +130,7 @@ class Hiera
               data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
             end
           end
-          #Hiera.debug("[hiera-vault] Data: #{data}")
+          #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
           return Backend.parse_answer(data, scope)
       end
