@@ -46,15 +46,12 @@ class Hiera
 
         # Check vault kv version
         if (@config[:kv_version]).nil?
-          @data_hash = ""
           @api_path = ""
           Hiera.debug("[hiera-vault] kv engine version not set using default: 1")
         elsif @config[:kv_version] == 1
-          @data_hash = ""
           @api_path = ""
           Hiera.debug("[hiera-vault] Using kv engine version: #{@config[:kv_version]}")
         elsif @config[:kv_version] == 2
-          @data_hash = ":data"
           @api_path = "data/"
           Hiera.debug("[hiera-vault] Using kv engine version: #{@config[:kv_version]}")
         else
@@ -109,7 +106,6 @@ class Hiera
           end
 
           return nil if secret.nil?
-          
           Hiera.debug("[hiera-vault] Read secret: #{key}")
           if @config[:default_field] and (@config[:default_field_behavior] == 'ignore' or (secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1))
             return nil if not secret.data.has_key?(@config[:default_field].to_sym)
