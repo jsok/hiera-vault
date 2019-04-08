@@ -38,6 +38,19 @@ The hiera lookup for `foo` will return a Hash:
 
     {"value"=>"bar","other"=>"baz"}
 
+### Vault KV engine version - optional
+
+Since version 0.10.0 Vault supports kv secrets versioning so-called KV version 2. By default version 1 support is enabled. To configure module to work with version 2 secrets specify the :kv_version setting e.g.
+
+    :vault:
+        :kv_version: 2
+
+Make sure to enable versioning for all secrets in Vault:
+
+    vault kv enable-versioning secret/foo
+
+**NOTE:** It is not possible to lookup through v1 and v2 secrets simultaneously. Use the only type.
+
 ### Single Value - optional
 
 If you use just a single field to store data, eg. "value" - you can request that just this is returned as a string, instead of a hash.
