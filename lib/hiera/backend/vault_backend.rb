@@ -2,8 +2,7 @@
 class Hiera
   module Backend
     class Vault_backend
-
-      def initialize()
+      def initialize
         require 'json'
         require 'vault'
 
@@ -43,12 +42,16 @@ class Hiera
           @vault = nil
           Hiera.warn("[hiera-vault] Skipping backend. Configuration error: #{e}")
         end
+
+        @cache = {}
+        @config[':cache_timeout'] ||= 10
+        @config[:cache_clean_interval] ||= 3600
       end
 
       def lookup(key, scope, order_override, resolution_type)
         return nil if @vault.nil?
 
-        Hiera.debug("[hiera-vault] Looking up #{key} in vault backend")
+        Hiera.debug("[hiera-vault] Looking up #{key} in vault backend") 
 
         answer = nil
         found = false
@@ -57,10 +60,13 @@ class Hiera
         @config[:mounts][:generic].each do |mount|
           path = Backend.parse_string(mount, scope, { 'key' => key })
           Backend.datasources(scope, order_override) do |source|
-            Hiera.debug("Looking in path #{path}/#{source}/")
-            new_answer = lookup_generic("#{path}/#{source}/#{key}", scope)
+            Hiera.debug("[hiera-vault] Looking in path #{path}/#{source}/")
+            data = lookup_generic_with_cache("#{path}/#{source}/#{key}")
             #Hiera.debug("[hiera-vault] Answer: #{new_answer}:#{new_answer.class}")
-            next if new_answer.nil?
+            next if data.nil?
+            found = true
+            new_answer = Backend.parse_answer(data, scope)
+
             case resolution_type
             when :array
               raise Exception, "Hiera type mismatch: expected Array and got #{new_answer.class}" unless new_answer.kind_of? Array or new_answer.kind_of? String
@@ -72,46 +78,74 @@ class Hiera
               answer = Backend.merge_answer(new_answer,answer)
             else
               answer = new_answer
-              found = true
               break
             end
           end
-          break if found
         end
 
         return answer
       end
 
-      def lookup_generic(key, scope)
-          begin
-            secret = @vault.logical.read(key)
-          rescue Vault::HTTPConnectionError
-            Hiera.debug("[hiera-vault] Could not connect to read secret: #{key}")
-          rescue Vault::HTTPError => e
-            Hiera.warn("[hiera-vault] Could not read secret #{key}: #{e.errors.join("\n").rstrip}")
-          end
+      private
 
-          return nil if secret.nil?
+      def lookup_generic_with_cache(key)
+        return lookup_generic(key) if @config[:cache_timeout] <= 0
 
-          Hiera.debug("[hiera-vault] Read secret: #{key}")
-          if @config[:default_field] and (@config[:default_field_behavior] == 'ignore' or (secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1))
-            return nil if not secret.data.has_key?(@config[:default_field].to_sym)
-            # Return just our default_field
-            data = secret.data[@config[:default_field].to_sym]
-            if @config[:default_field_parse] == 'json'
-              begin
-                data = JSON.parse(data)
-              rescue JSON::ParserError => e
-                Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
-              end
+        now = Time.now.to_i
+        expired_at = now + @config[:cache_timeout]
+
+        periodically_clean_cache(now) unless @config[:cache_clean_interval] == 0
+
+        if !@cache[key] || @cache[key][:expired_at] < now
+          Hiera.debug("[hiera-vault] Lookup #{key} in vault")
+          @cache[key] = {
+            :expired_at => expired_at,
+            :result => lookup_generic(key)
+          }
+        else
+          Hiera.debug("[hiera-vault] #{key} found in cache")
+        end
+        return @cache[key][:result]
+      end
+
+      def lookup_generic(key)
+        begin
+          secret = @vault.logical.read(key)
+        rescue Vault::HTTPConnectionError
+          Hiera.debug("[hiera-vault] Could not connect to read secret: #{key}")
+        rescue Vault::HTTPError => e
+          Hiera.warn("[hiera-vault] Could not read secret #{key}: #{e.errors.join("\n").rstrip}")
+        end
+
+        return nil if secret.nil?
+
+        Hiera.debug("[hiera-vault] Read secret: #{key}")
+        if @config[:default_field] and (@config[:default_field_behavior] == 'ignore' or (secret.data.has_key?(@config[:default_field].to_sym) and secret.data.length == 1))
+          return nil if not secret.data.has_key?(@config[:default_field].to_sym)
+          # Return just our default_field
+          data = secret.data[@config[:default_field].to_sym]
+          if @config[:default_field_parse] == 'json'
+            begin
+              data = JSON.parse(data)
+            rescue JSON::ParserError => e
+              Hiera.debug("[hiera-vault] Could not parse string as json: #{e}")
             end
-          else
-            # Turn secret's hash keys into strings
-            data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
           end
-          #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
+        else
+          data = secret.data.inject({}) { |h, (k, v)| h[k.to_s] = v; h }
+        end
+        #Hiera.debug("[hiera-vault] Data: #{data}:#{data.class}")
 
-          return Backend.parse_answer(data, scope)
+        return data
+      end
+
+      def periodically_clean_cache(now)
+        return if now < @clean_cache_at.to_i
+        
+        @clean_cache_at = now + @config[:cache_clean_interval]
+        @cache.delete_if do |_, entry|
+          entry[:expired_at] < now
+        end 
       end
 
     end
